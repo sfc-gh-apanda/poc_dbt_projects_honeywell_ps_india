@@ -17,7 +17,7 @@ sources:
   - name: foundation_shared
     description: "Foundation shared dimension models (as sources)"
     database: edw
-    schema: dbt_shared
+    schema: dev_dbt_dbt_shared
     
     tables:
       - name: dim_customer
