@@ -42,7 +42,8 @@ fiscal_cal as (
 
 ),
 
-aging_calc as (
+-- First CTE: Calculate base data with days_late
+base_data as (
 
     select
         -- Snapshot information
@@ -60,10 +61,7 @@ aging_calc as (
         ar.customer_sk,
         cust.customer_name,
         cust.customer_type,
-        case
-            when cust.is_internal then 'INTERNAL'
-            else 'EXTERNAL'
-        end as customer_type_flag,
+        cust.is_internal,
         
         -- Amounts
         ar.amt_usd_me,
@@ -77,28 +75,8 @@ aging_calc as (
         ar.posting_date,
         ar.net_due_date as due_date,
         
-        -- Aging calculation
+        -- Aging calculation (calculate here so it can be reused)
         datediff('day', ar.net_due_date, {{ var('snapshot_date') }}) as days_late,
-        
-        -- Aging bucket using foundation macro
-        {{ aging_bucket('days_late') }} as aging_bucket,
-        
-        -- Past due flag
-        case
-            when days_late > 0 then 'YES'
-            else 'NO'
-        end as past_due_flag,
-        
-        -- Amount buckets
-        case
-            when days_late <= 0 then round(ar.amt_usd_me, 2)
-            else 0
-        end as current_amt,
-        
-        case
-            when days_late > 0 then round(ar.amt_usd_me, 2)
-            else 0
-        end as past_due_amt,
         
         -- GL and organizational
         ar.gl_account,
@@ -116,10 +94,7 @@ aging_calc as (
         -- Fiscal period (from posting date)
         fc.fiscal_year_period_str as fiscal_year_period,
         fc.fiscal_year_int as fiscal_year,
-        fc.fiscal_period_int as fiscal_period,
-        
-        -- Metadata
-        current_timestamp() as loaded_at
+        fc.fiscal_period_int as fiscal_period
         
     from ar_invoice ar
     
@@ -129,6 +104,88 @@ aging_calc as (
     
     left join fiscal_cal fc
         on to_char(ar.posting_date, 'YYYYMMDD') = fc.fiscal_day_key_str
+
+),
+
+-- Second CTE: Apply derived calculations using days_late
+aging_calc as (
+
+    select
+        -- All base columns
+        snapshot_date,
+        source_system,
+        company_code,
+        document_number,
+        document_line,
+        document_year,
+        customer_number,
+        customer_sk,
+        customer_name,
+        customer_type,
+        
+        -- Customer type flag (derived from is_internal)
+        case
+            when is_internal then 'INTERNAL'
+            else 'EXTERNAL'
+        end as customer_type_flag,
+        
+        -- Amounts
+        amt_usd_me,
+        amt_doc,
+        amt_lcl,
+        doc_currency,
+        local_currency,
+        
+        -- Dates
+        document_date,
+        posting_date,
+        due_date,
+        
+        -- Days late (now available from base_data CTE)
+        days_late,
+        
+        -- Aging bucket using foundation macro (now days_late is accessible)
+        {{ aging_bucket('days_late') }} as aging_bucket,
+        
+        -- Past due flag
+        case
+            when days_late > 0 then 'YES'
+            else 'NO'
+        end as past_due_flag,
+        
+        -- Amount buckets
+        case
+            when days_late <= 0 then round(amt_usd_me, 2)
+            else 0
+        end as current_amt,
+        
+        case
+            when days_late > 0 then round(amt_usd_me, 2)
+            else 0
+        end as past_due_amt,
+        
+        -- GL and organizational
+        gl_account,
+        profit_center,
+        sales_organization,
+        
+        -- Payment terms
+        payment_terms,
+        payment_terms_name,
+        
+        -- Analyst
+        credit_analyst_name,
+        credit_analyst_id,
+        
+        -- Fiscal period
+        fiscal_year_period,
+        fiscal_year,
+        fiscal_period,
+        
+        -- Metadata
+        current_timestamp()::timestamp_ntz as loaded_at
+        
+    from base_data
 
 )
 
@@ -142,4 +199,3 @@ select * from aging_calc
     - Only open invoices (clearing_date IS NULL in staging)
     - Only customer debits (account_type = 'D' in staging)
 */
-

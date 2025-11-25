@@ -99,7 +99,7 @@ renamed as (
         -- Metadata
         load_ts,
         update_ts,
-        current_timestamp() as _stg_loaded_at
+        current_timestamp()::timestamp_ntz as _stg_loaded_at
         
     from source
 
