@@ -1,0 +1,35 @@
+# dbt_finance_core profile configuration
+# 
+# IMPORTANT: This is a sample profile for reference.
+# For security, copy this to ~/.dbt/profiles.yml and update with your credentials.
+# Never commit actual credentials to version control.
+
+dbt_finance_core:
+  target: dev
+  outputs:
+    dev:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+      role: "{{ env_var('SNOWFLAKE_ROLE', 'DBT_DEV_ROLE') }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE', 'DEV_DB') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'DBT_WH') }}"
+      schema: CORP_DM_FIN_DEV
+      threads: 4
+      client_session_keep_alive: true
+      query_tag: dbt_finance_core_dev
+
+    prod:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+      role: "{{ env_var('SNOWFLAKE_ROLE', 'DBT_PROD_ROLE') }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE', 'PROD_DB') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'DBT_WH') }}"
+      schema: CORP_DM_FIN
+      threads: 8
+      client_session_keep_alive: true
+      query_tag: dbt_finance_core_prod
+

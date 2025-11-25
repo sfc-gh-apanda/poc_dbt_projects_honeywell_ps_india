@@ -1,0 +1,3 @@
+# This directory contains custom singular tests for dbt_finance_core
+# Add SQL-based data tests here
+

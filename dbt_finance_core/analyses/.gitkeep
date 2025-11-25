@@ -1,0 +1,3 @@
+# This directory contains analysis SQL files for dbt_finance_core
+# Add ad-hoc analytical queries here (compiled but not executed by dbt run)
+
