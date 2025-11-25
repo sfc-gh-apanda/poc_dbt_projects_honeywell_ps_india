@@ -1,0 +1,65 @@
+name: 'dbt_finance_core'
+version: '1.0.0'
+config-version: 2
+
+# Profile configuration
+profile: 'dbt_finance_core'
+
+# Paths
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+  - "logs"
+
+# Model configurations
+models:
+  dbt_finance_core:
+    marts:
+      finance:
+        +materialized: table
+        +schema: corp_dm_fin
+        +tags: ["finance", "data_mart"]
+        +docs:
+          node_color: "#228B22"
+        +cluster_by: ["source_system", "snapshot_date"]
+
+# Test configurations
+tests:
+  dbt_finance_core:
+    +store_failures: true
+    +schema: dbt_test_failures
+
+# Documentation
+docs:
+  dbt_finance_core:
+    +meta:
+      owner: "Finance Analytics Team"
+      project_type: "Domain"
+      domain: "Finance"
+      description: "Finance domain models including AR, GL, and AP data marts"
+
+# Variables
+vars:
+  snapshot_date: "CURRENT_DATE()"
+
+# Hooks
+on-run-start:
+  - "{{ log('Starting dbt_finance_core run...', info=true) }}"
+
+on-run-end:
+  - "{{ log('dbt_finance_core run complete!', info=true) }}"
+
+# Quoting
+quoting:
+  database: false
+  schema: false
+  identifier: false
+

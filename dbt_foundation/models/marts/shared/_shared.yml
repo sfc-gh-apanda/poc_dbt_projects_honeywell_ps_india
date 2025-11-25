@@ -1,0 +1,123 @@
+version: 2
+
+models:
+  - name: dim_customer
+    description: "Shared customer dimension - published API for all domain projects"
+    access: public
+    config:
+      contract:
+        enforced: true
+    
+    columns:
+      - name: customer_id
+        description: "Unique customer identifier (composite of customer_num_sk + source_system)"
+        data_type: varchar
+        constraints:
+          - type: not_null
+          - type: primary_key
+      
+      - name: customer_num_sk
+        description: "Customer number from source system"
+        data_type: varchar
+        constraints:
+          - type: not_null
+      
+      - name: source_system
+        description: "Source ERP system"
+        data_type: varchar
+        constraints:
+          - type: not_null
+      
+      - name: customer_name
+        description: "Customer legal name"
+        data_type: varchar
+      
+      - name: customer_type
+        description: "Customer type: E=External, I=Internal"
+        data_type: varchar
+      
+      - name: customer_type_name
+        description: "Customer type description"
+        data_type: varchar
+      
+      - name: customer_country
+        description: "Customer country code"
+        data_type: varchar
+      
+      - name: customer_country_name
+        description: "Customer country name"
+        data_type: varchar
+      
+      - name: is_internal
+        description: "Flag indicating if customer is internal Honeywell entity"
+        data_type: boolean
+      
+      - name: _loaded_at
+        description: "Timestamp when record was loaded into foundation"
+        data_type: timestamp_ntz
+    
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - customer_num_sk
+            - source_system
+
+  - name: dim_fiscal_calendar
+    description: "Shared fiscal calendar - published API for all domain projects"
+    access: public
+    config:
+      contract:
+        enforced: true
+    
+    columns:
+      - name: fiscal_day_key_str
+        description: "Fiscal day key in YYYYMMDD format"
+        data_type: varchar
+        constraints:
+          - type: not_null
+          - type: primary_key
+      
+      - name: fiscal_date
+        description: "Calendar date"
+        data_type: date
+        constraints:
+          - type: not_null
+      
+      - name: fiscal_year_str
+        description: "Fiscal year as string (YYYY)"
+        data_type: varchar
+      
+      - name: fiscal_year_int
+        description: "Fiscal year as integer"
+        data_type: number
+      
+      - name: fiscal_period_str
+        description: "Fiscal period as string (MM)"
+        data_type: varchar
+      
+      - name: fiscal_period_int
+        description: "Fiscal period as integer (1-12)"
+        data_type: number
+      
+      - name: fiscal_year_period_str
+        description: "Fiscal year-period as string (YYYY.MM)"
+        data_type: varchar
+      
+      - name: fiscal_year_period_int
+        description: "Fiscal year-period as integer (YYYYMM)"
+        data_type: number
+      
+      - name: fiscal_year_quarter_str
+        description: "Fiscal year-quarter as string (YYYY.Q#)"
+        data_type: varchar
+      
+      - name: _loaded_at
+        description: "Timestamp when record was loaded into foundation"
+        data_type: timestamp_ntz
+    
+    tests:
+      - dbt_utils.expression_is_true:
+          expression: "fiscal_period_int between 1 and 12"
+      - dbt_utils.expression_is_true:
+          expression: "fiscal_year_int >= 2020"
+

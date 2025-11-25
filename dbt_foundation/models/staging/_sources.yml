@@ -1,0 +1,140 @@
+version: 2
+
+sources:
+  # Transaction fact tables
+  - name: corp_tran
+    description: "Transaction layer containing fact tables from source ERP systems"
+    database: edw
+    schema: corp_tran
+    
+    # Freshness monitoring
+    freshness:
+      warn_after: {count: 24, period: hour}
+      error_after: {count: 48, period: hour}
+    loaded_at_field: load_ts
+    
+    tables:
+      - name: fact_account_receivable_gbl
+        description: "Global accounts receivable fact table aggregated from all source systems"
+        identifier: fact_account_receivable_gbl
+        
+        columns:
+          - name: source_system
+            description: "Source ERP system identifier (BRP900, CIP900, CIP300, etc.)"
+            tests:
+              - not_null
+              - accepted_values:
+                  values: ['BRP900', 'CIP900', 'CIP300', 'EEP300', 'P11', 'PRD010', 'C11111', 'ARP900']
+          
+          - name: company_code
+            description: "Company code (legal entity identifier)"
+            tests:
+              - not_null
+          
+          - name: accounting_doc
+            description: "Accounting document number (invoice number)"
+            tests:
+              - not_null
+          
+          - name: account_doc_line_item
+            description: "Line item number within the document"
+            tests:
+              - not_null
+          
+          - name: amt_usd_me
+            description: "Invoice amount in USD using month-end exchange rate"
+            tests:
+              - not_null
+          
+          - name: clearing_date
+            description: "Date when invoice was cleared/paid (NULL = open item)"
+          
+          - name: account_type
+            description: "Account type: D=Debit (AR), C=Credit"
+            tests:
+              - accepted_values:
+                  values: ['D', 'C']
+  
+  # Master data dimensions
+  - name: corp_master
+    description: "Master data dimension tables"
+    database: edw
+    schema: corp_master
+    
+    tables:
+      - name: dim_customer
+        description: "Customer master data from all source systems"
+        
+        columns:
+          - name: customer_num_sk
+            description: "Customer number surrogate key (unique per source system)"
+            tests:
+              - not_null
+          
+          - name: source_system
+            description: "Source system for the customer record"
+            tests:
+              - not_null
+          
+          - name: customer_name
+            description: "Customer legal name"
+          
+          - name: customer_type
+            description: "Customer type: E=External, I=Internal"
+            tests:
+              - accepted_values:
+                  values: ['E', 'I']
+        
+        tests:
+          - dbt_utils.unique_combination_of_columns:
+              combination_of_columns:
+                - customer_num_sk
+                - source_system
+      
+      - name: dim_entity
+        description: "Legal entity master data"
+        
+        columns:
+          - name: source_entity_code_sk
+            description: "Entity code (company code)"
+            tests:
+              - not_null
+          
+          - name: source_system
+            description: "Source system for the entity record"
+            tests:
+              - not_null
+        
+        tests:
+          - dbt_utils.unique_combination_of_columns:
+              combination_of_columns:
+                - source_entity_code_sk
+                - source_system
+  
+  # Reference data
+  - name: corp_ref
+    description: "Reference data and lookup tables"
+    database: edw
+    schema: corp_ref
+    
+    tables:
+      - name: time_fiscal_day
+        description: "Fiscal calendar with day-level granularity"
+        
+        columns:
+          - name: fiscal_day_key_str
+            description: "Fiscal day key in YYYYMMDD string format"
+            tests:
+              - unique
+              - not_null
+          
+          - name: fiscal_date_key_date
+            description: "Fiscal date as DATE type"
+            tests:
+              - not_null
+          
+          - name: fiscal_year_period_int
+            description: "Fiscal year-period as integer (YYYYMM)"
+            tests:
+              - not_null
+

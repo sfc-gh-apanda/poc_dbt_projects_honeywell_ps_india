@@ -1,0 +1,96 @@
+name: 'dbt_foundation'
+version: '1.0.0'
+config-version: 2
+
+# Profile configuration
+profile: 'dbt_foundation'
+
+# Paths
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+  - "logs"
+
+# Model configurations
+models:
+  dbt_foundation:
+    # Staging layer - source data cleaning
+    staging:
+      +materialized: view
+      +schema: dbt_staging
+      +access: private  # Not published to other projects
+      +tags: ["staging", "foundation"]
+      +docs:
+        node_color: "#F4A460"
+    
+    # Marts - Shared dimensions and facts
+    marts:
+      shared:
+        +materialized: table
+        +schema: dbt_shared
+        +access: public  # Published API for domain projects
+        +tags: ["shared", "foundation", "published"]
+        +docs:
+          node_color: "#4169E1"
+        +contract:
+          enforced: true  # Enforce schema contracts
+
+# Test configurations
+tests:
+  dbt_foundation:
+    +store_failures: true
+    +schema: dbt_test_failures
+
+# Snapshot configurations
+snapshots:
+  dbt_foundation:
+    +target_schema: dbt_snapshots
+    +strategy: timestamp
+    +updated_at: 'updated_at'
+
+# Documentation
+docs:
+  dbt_foundation:
+    +meta:
+      owner: "Platform Team"
+      project_type: "Foundation"
+      description: "Shared staging models, dimensions, and macros for all domain projects"
+
+# Variables
+vars:
+  # Source systems
+  source_systems:
+    - 'BRP900'
+    - 'CIP900'
+    - 'CIP300'
+    - 'EEP300'
+    - 'P11'
+    - 'PRD010'
+  
+  # Current snapshot date
+  snapshot_date: "CURRENT_DATE()"
+  
+  # Fiscal year
+  current_fiscal_year: 2024
+
+# Hooks
+on-run-start:
+  - "{{ log('Starting dbt_foundation run...', info=true) }}"
+
+on-run-end:
+  - "{{ log('dbt_foundation run complete!', info=true) }}"
+
+# Quoting
+quoting:
+  database: false
+  schema: false
+  identifier: false
+

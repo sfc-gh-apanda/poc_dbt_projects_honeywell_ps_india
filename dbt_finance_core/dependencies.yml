@@ -1,0 +1,8 @@
+projects:
+  - name: dbt_foundation
+    version: ">=1.0.0,<2.0.0"
+
+# This creates a dependency on the foundation project
+# Finance core can only reference models from foundation
+# No lateral dependencies on other domain projects allowed
+
