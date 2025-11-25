@@ -1,0 +1,167 @@
+version: 2
+
+models:
+  - name: stg_ar_invoice
+    description: "Staging model for accounts receivable invoices - open items only"
+    access: public  # Make available to downstream projects
+    config:
+      tags: ['staging', 'ar', 'invoice']
+    
+    columns:
+      - name: source_system
+        description: "Source ERP system identifier"
+        tests:
+          - not_null
+      
+      - name: company_code
+        description: "Company code (legal entity)"
+        tests:
+          - not_null
+      
+      - name: document_number
+        description: "Accounting document number (invoice)"
+        tests:
+          - not_null
+      
+      - name: document_line
+        description: "Line item number within document"
+        tests:
+          - not_null
+      
+      - name: document_year
+        description: "Fiscal year of document"
+        tests:
+          - not_null
+      
+      - name: customer_number
+        description: "Customer number (sold-to party)"
+      
+      - name: customer_sk
+        description: "Customer surrogate key for dimension join"
+      
+      - name: amt_usd_me
+        description: "Invoice amount in USD (month-end exchange rate)"
+        tests:
+          - not_null
+      
+      - name: amt_doc
+        description: "Invoice amount in document currency"
+      
+      - name: amt_lcl
+        description: "Invoice amount in local currency"
+      
+      - name: doc_currency
+        description: "Document currency code"
+      
+      - name: local_currency
+        description: "Local currency code"
+      
+      - name: document_date
+        description: "Document date"
+      
+      - name: posting_date
+        description: "Posting date to GL"
+        tests:
+          - not_null
+      
+      - name: net_due_date
+        description: "Net due date for payment"
+      
+      - name: baseline_date
+        description: "Baseline date for payment terms calculation"
+      
+      - name: clearing_date
+        description: "Clearing date (NULL for open items)"
+        tests:
+          - not_null:
+              where: "1=0"  # Should always be NULL in staging (filter applied)
+      
+      - name: gl_account
+        description: "GL account number"
+      
+      - name: sub_gl_account
+        description: "Sub-ledger GL account"
+      
+      - name: profit_center
+        description: "Profit center"
+      
+      - name: sales_organization
+        description: "Sales organization code"
+      
+      - name: payment_terms
+        description: "Payment terms code"
+      
+      - name: payment_terms_name
+        description: "Payment terms description"
+      
+      - name: payment_index
+        description: "Payment transaction index"
+      
+      - name: document_type_sk
+        description: "Document type surrogate key"
+      
+      - name: doc_type_desc
+        description: "Document type description"
+      
+      - name: posting_key
+        description: "Posting key"
+      
+      - name: posting_key_name
+        description: "Posting key description"
+      
+      - name: ref_doc_num
+        description: "Reference document number"
+      
+      - name: reference_transaction
+        description: "Reference transaction"
+      
+      - name: invoice_ref
+        description: "Invoice reference (residual document)"
+      
+      - name: account_type
+        description: "Account type (D=Debit for AR)"
+        tests:
+          - accepted_values:
+              values: ['D']  # Staging filters to debits only
+      
+      - name: special_gl_indicator
+        description: "Special GL indicator"
+      
+      - name: balance_type
+        description: "Balance type"
+      
+      - name: assignment
+        description: "Assignment field"
+      
+      - name: reason_code
+        description: "Reason code"
+      
+      - name: credit_analyst_name
+        description: "Credit analyst name"
+      
+      - name: credit_analyst_id
+        description: "Credit analyst ID"
+      
+      - name: source_org
+        description: "Source organization"
+      
+      - name: load_ts
+        description: "Source system load timestamp"
+      
+      - name: update_ts
+        description: "Source system update timestamp"
+      
+      - name: _stg_loaded_at
+        description: "Staging load timestamp"
+        tests:
+          - not_null
+    
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - source_system
+            - company_code
+            - document_number
+            - document_line
+            - document_year
+

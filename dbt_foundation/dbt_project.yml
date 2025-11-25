@@ -26,7 +26,7 @@ models:
     staging:
       +materialized: view
       +schema: dbt_staging
-      +access: private  # Not published to other projects
+      +access: public  # Published to domain projects that need raw transformed data
       +tags: ["staging", "foundation"]
     
     # Marts - Shared dimensions and facts
