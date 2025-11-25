@@ -28,8 +28,6 @@ models:
       +schema: dbt_staging
       +access: private  # Not published to other projects
       +tags: ["staging", "foundation"]
-      +docs:
-        node_color: "#F4A460"
     
     # Marts - Shared dimensions and facts
     marts:
@@ -38,8 +36,6 @@ models:
         +schema: dbt_shared
         +access: public  # Published API for domain projects
         +tags: ["shared", "foundation", "published"]
-        +docs:
-          node_color: "#4169E1"
         +contract:
           enforced: true  # Enforce schema contracts
 

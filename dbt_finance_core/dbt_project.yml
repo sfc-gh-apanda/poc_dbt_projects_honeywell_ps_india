@@ -27,8 +27,6 @@ models:
         +materialized: table
         +schema: corp_dm_fin
         +tags: ["finance", "data_mart"]
-        +docs:
-          node_color: "#228B22"
         +cluster_by: ["source_system", "snapshot_date"]
 
 # Test configurations
