@@ -50,7 +50,7 @@ transformed as (
         
         -- Metadata
         load_ts,
-        current_timestamp() as _loaded_at
+        current_timestamp()::timestamp_ntz as _loaded_at
         
     from source
 
