@@ -7,7 +7,7 @@ sources:
   - name: foundation_staging
     description: "Foundation staging layer models (as sources)"
     database: edw
-    schema: dbt_staging
+    schema: DEV_DBT_DBT_STAGING
     
     tables:
       - name: stg_ar_invoice
