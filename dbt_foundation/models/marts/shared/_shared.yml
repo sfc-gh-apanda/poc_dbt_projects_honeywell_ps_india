@@ -40,6 +40,14 @@ models:
         description: "Customer type description"
         data_type: varchar
       
+      - name: customer_classification
+        description: "Customer classification name"
+        data_type: varchar
+      
+      - name: customer_account_group
+        description: "Customer account group"
+        data_type: varchar
+      
       - name: customer_country
         description: "Customer country code"
         data_type: varchar
@@ -48,9 +56,41 @@ models:
         description: "Customer country name"
         data_type: varchar
       
+      - name: duns_number
+        description: "D-U-N-S number from MDM"
+        data_type: varchar
+      
+      - name: mdm_customer_full_name
+        description: "Full customer name from MDM"
+        data_type: varchar
+      
+      - name: global_ultimate_duns
+        description: "Global ultimate D-U-N-S number"
+        data_type: varchar
+      
+      - name: global_ultimate_name
+        description: "Global ultimate company name"
+        data_type: varchar
+      
+      - name: global_ultimate_parent_name
+        description: "Global ultimate parent company name"
+        data_type: varchar
+      
+      - name: ultimate_parent_source
+        description: "Source of ultimate parent information"
+        data_type: varchar
+      
       - name: is_internal
         description: "Flag indicating if customer is internal Honeywell entity"
         data_type: boolean
+      
+      - name: load_ts
+        description: "Timestamp when record was loaded into source"
+        data_type: timestamp_ntz
+      
+      - name: update_ts
+        description: "Timestamp when record was last updated in source"
+        data_type: timestamp_ntz
       
       - name: _loaded_at
         description: "Timestamp when record was loaded into foundation"
@@ -110,6 +150,26 @@ models:
       - name: fiscal_year_quarter_str
         description: "Fiscal year-quarter as string (YYYY.Q#)"
         data_type: varchar
+      
+      - name: calendar_year
+        description: "Calendar year"
+        data_type: number
+      
+      - name: calendar_month
+        description: "Calendar month (1-12)"
+        data_type: number
+      
+      - name: calendar_day
+        description: "Calendar day of month"
+        data_type: number
+      
+      - name: day_of_week
+        description: "Day of week"
+        data_type: varchar
+      
+      - name: load_ts
+        description: "Timestamp when record was loaded into source"
+        data_type: timestamp_ntz
       
       - name: _loaded_at
         description: "Timestamp when record was loaded into foundation"

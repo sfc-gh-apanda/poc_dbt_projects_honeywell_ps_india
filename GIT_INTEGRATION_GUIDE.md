@@ -416,3 +416,5 @@ SHOW GRANTS OF ROLE dbt_role;
 
 **You're now ready to use Git-integrated DBT in Snowflake!** 🚀
 
+
+
