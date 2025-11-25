@@ -1,0 +1,30 @@
+version: 2
+
+# Workaround for cross-project reference issues
+# Reference foundation models as sources instead of using ref()
+
+sources:
+  - name: foundation_staging
+    description: "Foundation staging layer models (as sources)"
+    database: edw
+    schema: dbt_staging
+    
+    tables:
+      - name: stg_ar_invoice
+        description: "AR invoice staging model from foundation"
+        identifier: stg_ar_invoice
+
+  - name: foundation_shared
+    description: "Foundation shared dimension models (as sources)"
+    database: edw
+    schema: dbt_shared
+    
+    tables:
+      - name: dim_customer
+        description: "Customer dimension from foundation"
+        identifier: dim_customer
+      
+      - name: dim_fiscal_calendar
+        description: "Fiscal calendar dimension from foundation"
+        identifier: dim_fiscal_calendar
+

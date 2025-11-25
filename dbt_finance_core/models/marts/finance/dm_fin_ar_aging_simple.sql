@@ -9,36 +9,39 @@
     Simplified AR Aging Data Mart
     
     Purpose: Smallest isolated branch implementation demonstrating:
-    - Foundation dependency only (no lateral dependencies)
+    - Foundation dependency (via source references)
     - Use of shared dimensions from foundation
     - Use of shared macros from foundation
     - Complete data lineage from source to mart
     
-    Dependencies:
-    - dbt_foundation.stg_ar_invoice (staging)
-    - dbt_foundation.dim_customer (shared dimension)
-    - dbt_foundation.dim_fiscal_calendar (shared dimension)
-    - dbt_foundation.aging_bucket() (shared macro)
+    Dependencies (referenced as sources for compatibility):
+    - foundation_staging.stg_ar_invoice (staging)
+    - foundation_shared.dim_customer (shared dimension)
+    - foundation_shared.dim_fiscal_calendar (shared dimension)
+    - aging_bucket() macro (from dbt_foundation)
+    
+    Note: Uses source() instead of ref() for foundation models
+          to ensure compatibility with Snowflake native DBT
 */
 
 with ar_invoice as (
 
-    -- Reference foundation staging model
-    select * from {{ ref('dbt_foundation', 'stg_ar_invoice') }}
+    -- Reference foundation staging model as source (workaround for cross-project ref issues)
+    select * from {{ source('foundation_staging', 'stg_ar_invoice') }}
 
 ),
 
 customer as (
 
-    -- Reference foundation shared dimension
-    select * from {{ ref('dbt_foundation', 'dim_customer') }}
+    -- Reference foundation shared dimension as source
+    select * from {{ source('foundation_shared', 'dim_customer') }}
 
 ),
 
 fiscal_cal as (
 
-    -- Reference foundation shared dimension
-    select * from {{ ref('dbt_foundation', 'dim_fiscal_calendar') }}
+    -- Reference foundation shared dimension as source
+    select * from {{ source('foundation_shared', 'dim_fiscal_calendar') }}
 
 ),
 
