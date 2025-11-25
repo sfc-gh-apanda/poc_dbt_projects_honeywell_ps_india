@@ -12,10 +12,10 @@ dbt_finance_core:
       account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
       user: "{{ env_var('SNOWFLAKE_USER') }}"
       password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
-      role: "{{ env_var('SNOWFLAKE_ROLE', 'DBT_DEV_ROLE') }}"
-      database: "{{ env_var('SNOWFLAKE_DATABASE', 'DEV_DB') }}"
-      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'DBT_WH') }}"
-      schema: CORP_DM_FIN_DEV
+      role: "{{ env_var('SNOWFLAKE_ROLE', 'ACCOUNTADMIN') }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE', 'EDW') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'COMPUTE_WH') }}"
+      schema: CORP_DM_FIN
       threads: 4
       client_session_keep_alive: true
       query_tag: dbt_finance_core_dev
@@ -25,9 +25,9 @@ dbt_finance_core:
       account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
       user: "{{ env_var('SNOWFLAKE_USER') }}"
       password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
-      role: "{{ env_var('SNOWFLAKE_ROLE', 'DBT_PROD_ROLE') }}"
-      database: "{{ env_var('SNOWFLAKE_DATABASE', 'PROD_DB') }}"
-      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'DBT_WH') }}"
+      role: "{{ env_var('SNOWFLAKE_ROLE', 'ACCOUNTADMIN') }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE', 'EDW') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'COMPUTE_WH') }}"
       schema: CORP_DM_FIN
       threads: 8
       client_session_keep_alive: true
