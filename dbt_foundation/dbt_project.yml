@@ -52,14 +52,6 @@ snapshots:
     +strategy: timestamp
     +updated_at: 'updated_at'
 
-# Documentation
-docs:
-  dbt_foundation:
-    +meta:
-      owner: "Platform Team"
-      project_type: "Foundation"
-      description: "Shared staging models, dimensions, and macros for all domain projects"
-
 # Variables
 vars:
   # Source systems
