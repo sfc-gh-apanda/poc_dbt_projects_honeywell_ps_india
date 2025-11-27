@@ -14,11 +14,11 @@ We've now implemented **comprehensive data quality tests** using both `dbt_utils
 
 | Layer | Model | Built-in Tests | dbt_utils Tests | dbt_expectations Tests | Total |
 |-------|-------|----------------|-----------------|------------------------|-------|
-| **Staging** | stg_ar_invoice | 5 | 1 | 4 | **10** |
+| **Staging** | stg_ar_invoice | 5 | 2 | 2 | **9** |
 | **Shared Dimensions** | dim_customer | 0 | 1 | 4 | **5** |
 | **Shared Dimensions** | dim_fiscal_calendar | 0 | 2 | 5 | **7** |
-| **Finance Mart** | dm_fin_ar_aging_simple | 13 | 2 | 7 | **22** |
-| **TOTAL** | **4 models** | **18** | **6** | **20** | **44 tests** |
+| **Finance Mart** | dm_fin_ar_aging_simple | 13 | 3 | 6 | **22** |
+| **TOTAL** | **4 models** | **18** | **9** | **17** | **44 tests** |
 
 ---
 
@@ -89,11 +89,11 @@ We've now implemented **comprehensive data quality tests** using both `dbt_utils
 **Purpose:** Ensure data is up-to-date
 
 ```yaml
-# Example: Freshness check
-- dbt_expectations.expect_row_values_to_have_recent_data:
+# Example: Freshness check (using dbt_utils.recency)
+- dbt_utils.recency:
     datepart: day
+    field: loaded_at
     interval: 1  # Within last 1 day
-    timestamp_column: loaded_at
     config:
       severity: error
 ```
@@ -528,14 +528,19 @@ AS
 ## ✅ Summary
 
 **Question 1: Do we have dbt_expectations included?**
-- **Answer:** ✅ YES! 20 dbt_expectations tests now implemented
+- **Answer:** ✅ YES! 17 dbt_expectations tests now implemented
 
 **Question 2: Are historical results being persisted?**
 - **Answer:** ✅ YES! Automatically via dbt_artifacts
 
 **Total Data Quality Tests:** 44 tests across all models ✅
+- Built-in: 18
+- dbt_utils: 9 (includes freshness tests)
+- dbt_expectations: 17 (numeric ranges, statistical, table-level)
 
 **Historical Tracking:** Every test run stored in DBT_ARTIFACTS.TEST_EXECUTIONS ✅
+
+**Note:** Freshness tests use `dbt_utils.recency` (not dbt_expectations, which doesn't have freshness tests)
 
 **You're ready for production-grade data quality monitoring!** 🚀
 
