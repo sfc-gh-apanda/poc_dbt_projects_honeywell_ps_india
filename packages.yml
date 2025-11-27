@@ -1,0 +1,58 @@
+# ============================================================================
+# DBT Packages Configuration
+# ============================================================================
+# Recommended package stack for Finance + Snowflake Native DBT
+# Last updated: 2025-11-27
+# ============================================================================
+
+packages:
+  # ESSENTIAL: Core testing and utilities
+  - package: dbt-labs/dbt_utils
+    version: 1.1.1
+    # Why: Composite keys, business logic tests, 100+ utility macros
+    # Adoption: 95% of dbt teams
+  
+  # DATA QUALITY: Advanced testing
+  - package: calogica/dbt_expectations
+    version: 0.10.1
+    # Why: Statistical validation, distribution checks
+    # Essential for finance data quality requirements
+  
+  # OBSERVABILITY: DBT execution tracking
+  - package: brooklyn-data/dbt_artifacts
+    version: 2.6.1
+    # Why: Model performance, test results, execution history
+    # Stores metadata in Snowflake tables for Snowsight dashboards
+  
+  # OBSERVABILITY: Snowflake query & cost monitoring
+  - package: get-select/dbt-snowflake-monitoring
+    version: 3.0.0
+    # Why: Query costs, warehouse utilization, performance optimization
+    # Snowflake-native monitoring with dashboard support
+  
+  # PRODUCTIVITY: Code generation (optional - enable when needed)
+  # - package: dbt-labs/codegen
+  #   version: 0.12.1
+  #   # Why: Auto-generate YAML, save development time
+  
+  # VALIDATION: Migration validation (optional - enable when needed)
+  # - package: dbt-labs/audit_helper
+  #   version: 0.9.0
+  #   # Why: Compare new dbt models vs legacy queries
+
+# ============================================================================
+# Package Installation
+# ============================================================================
+# Run: dbt deps
+# This installs all packages to dbt_packages/ directory
+# ============================================================================
+
+# ============================================================================
+# Observability Setup (After dbt deps)
+# ============================================================================
+# 1. Run: dbt run (creates artifact tracking tables)
+# 2. Create monitoring views (see setup script in docs)
+# 3. Build Snowsight dashboard using monitoring views
+# 4. Set up alerts for cost/performance thresholds
+# ============================================================================
+
