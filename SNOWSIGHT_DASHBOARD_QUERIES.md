@@ -2,15 +2,26 @@
 
 ## 📊 Overview
 
-This document provides all SQL queries needed to create a comprehensive DBT observability dashboard in Snowflake Snowsight using `dbt_artifacts` and `dbt-snowflake-monitoring` packages.
+This document provides all SQL queries needed to create a comprehensive DBT observability dashboard in Snowflake Snowsight using `dbt_artifacts` package.
 
 **Coverage:**
 - ✅ DBT model execution tracking
-- ✅ Test results history
+- ✅ Test results history  
 - ✅ Source freshness monitoring
-- ✅ Snowflake query costs
 - ✅ Warehouse utilization
 - ✅ Performance anomaly detection
+
+## ⚠️ Important: Cost Tracking Limitations
+
+**Snowflake Native DBT Constraint:**
+- `QUERY_HISTORY` does NOT have `credits_used` column
+- Credits are tracked in `WAREHOUSE_METERING_HISTORY` (warehouse-level, not query-level)
+- **Cannot attribute exact credits to individual models**
+
+**Workaround:**
+- Cost tiles use `WAREHOUSE_METERING_HISTORY` for warehouse-level credits
+- Model-level costs are **estimated** based on execution time
+- For accurate per-query costing, use dbt Cloud (not Snowflake Native DBT)
 
 ---
 
@@ -80,11 +91,17 @@ today_tests AS (
     WHERE DATE(run_started_at) = CURRENT_DATE()
 ),
 today_costs AS (
+    -- Use WAREHOUSE_METERING_HISTORY for accurate credit tracking
     SELECT 
         COALESCE(SUM(credits_used), 0) as total_credits
-    FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
-    WHERE query_tag LIKE '%dbt%'
-      AND DATE(start_time) = CURRENT_DATE()
+    FROM SNOWFLAKE.ACCOUNT_USAGE.WAREHOUSE_METERING_HISTORY
+    WHERE warehouse_name IN (
+        SELECT DISTINCT warehouse_name 
+        FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY 
+        WHERE query_tag LIKE '%dbt%'
+          AND DATE(start_time) = CURRENT_DATE()
+    )
+    AND DATE(start_time) = CURRENT_DATE()
 )
 SELECT 
     r.models_run,
@@ -228,19 +245,40 @@ ORDER BY test_date DESC, status;
 -- ============================================================================
 -- DBT Query Costs Over Time (Last 30 Days)
 -- ============================================================================
+-- Combine query execution with warehouse credits
+WITH dbt_queries AS (
+    SELECT 
+        DATE(start_time) as query_date,
+        warehouse_name,
+        COUNT(*) as query_count,
+        ROUND(SUM(total_elapsed_time) / 1000 / 60, 1) as total_minutes
+    FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
+    WHERE query_tag LIKE '%dbt%'
+      AND start_time >= DATEADD(day, -30, CURRENT_DATE())
+    GROUP BY query_date, warehouse_name
+),
+warehouse_credits AS (
+    SELECT 
+        DATE(start_time) as credit_date,
+        warehouse_name,
+        SUM(credits_used) as total_credits
+    FROM SNOWFLAKE.ACCOUNT_USAGE.WAREHOUSE_METERING_HISTORY
+    WHERE start_time >= DATEADD(day, -30, CURRENT_DATE())
+    GROUP BY credit_date, warehouse_name
+)
 SELECT 
-    DATE(start_time) as query_date,
-    COUNT(*) as query_count,
-    ROUND(SUM(total_node_runtime) / 1000 / 60, 1) as total_minutes,
-    ROUND(SUM(credits_used), 3) as total_credits,
-    ROUND(SUM(credits_used) * 3.0, 2) as estimated_cost_usd,  -- Adjust rate as needed
-    ROUND(AVG(credits_used), 4) as avg_credits_per_query,
-    ROUND(MAX(credits_used), 3) as max_credits_single_query
-FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
-WHERE query_tag LIKE '%dbt%'
-  AND start_time >= DATEADD(day, -30, CURRENT_DATE())
-GROUP BY query_date
-ORDER BY query_date DESC;
+    q.query_date,
+    SUM(q.query_count) as query_count,
+    SUM(q.total_minutes) as total_minutes,
+    SUM(COALESCE(w.total_credits, 0)) as total_credits,
+    ROUND(SUM(COALESCE(w.total_credits, 0)) * 3.0, 2) as estimated_cost_usd,
+    ROUND(AVG(COALESCE(w.total_credits, 0)), 4) as avg_credits_per_day
+FROM dbt_queries q
+LEFT JOIN warehouse_credits w 
+    ON q.query_date = w.credit_date 
+    AND q.warehouse_name = w.warehouse_name
+GROUP BY q.query_date
+ORDER BY q.query_date DESC;
 ```
 
 **Chart Configuration:**
@@ -262,32 +300,29 @@ ORDER BY query_date DESC;
 
 ```sql
 -- ============================================================================
--- Cost by Model (Last 7 Days)
+-- Most Expensive Models by Execution Time (Last 7 Days)
+-- Note: Per-model credits not available in Snowflake Native DBT
+-- Using execution time as proxy for cost
 -- ============================================================================
-WITH dbt_queries AS (
-    SELECT 
-        query_text,
-        total_node_runtime,
-        credits_used,
-        start_time,
-        -- Extract model name from query
-        REGEXP_SUBSTR(query_text, 'create.*?(table|view)\\s+([\\w.]+)', 1, 1, 'ie', 2) as model_name
-    FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
-    WHERE query_tag LIKE '%dbt%'
-      AND start_time >= DATEADD(day, -7, CURRENT_DATE())
-      AND credits_used > 0
-)
 SELECT 
-    COALESCE(model_name, 'Unknown') as model_name,
+    SPLIT_PART(node_id, '.', -1) as model_name,
     COUNT(*) as run_count,
-    ROUND(SUM(credits_used), 3) as total_credits,
-    ROUND(SUM(credits_used) * 3.0, 2) as estimated_cost_usd,
-    ROUND(AVG(total_node_runtime / 1000), 2) as avg_seconds,
-    ROUND(SUM(credits_used) / COUNT(*), 4) as avg_credits_per_run
-FROM dbt_queries
-WHERE model_name IS NOT NULL
-GROUP BY model_name
-ORDER BY total_credits DESC
+    ROUND(SUM(total_node_runtime), 2) as total_seconds,
+    ROUND(SUM(total_node_runtime) / 60, 2) as total_minutes,
+    ROUND(AVG(total_node_runtime), 2) as avg_seconds_per_run,
+    -- Estimated cost based on execution time
+    -- Assumes: X-Small warehouse = $2/hour, adjust as needed
+    ROUND((SUM(total_node_runtime) / 3600) * 2.0, 2) as estimated_cost_usd,
+    CASE 
+        WHEN SUM(total_node_runtime) > 3600 THEN '🔴 High Cost'
+        WHEN SUM(total_node_runtime) > 600 THEN '🟡 Medium Cost'
+        ELSE '🟢 Low Cost'
+    END as cost_tier
+FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
+WHERE run_started_at >= DATEADD(day, -7, CURRENT_DATE())
+  AND status = 'success'
+GROUP BY node_id
+ORDER BY total_seconds DESC
 LIMIT 10;
 ```
 
@@ -394,18 +429,18 @@ ORDER BY bucket_order;
 
 ```sql
 -- ============================================================================
--- Warehouse Credit Usage by DBT (Last 7 Days)
+-- Warehouse Credit Usage (Last 7 Days)
+-- Uses WAREHOUSE_METERING_HISTORY for accurate credit tracking
 -- ============================================================================
 SELECT 
     DATE(start_time) as usage_date,
     warehouse_name,
     ROUND(SUM(credits_used), 3) as total_credits,
     ROUND(SUM(credits_used) * 3.0, 2) as estimated_cost_usd,
-    COUNT(*) as query_count,
-    ROUND(AVG(total_node_runtime / 1000), 2) as avg_seconds
-FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
-WHERE query_tag LIKE '%dbt%'
-  AND start_time >= DATEADD(day, -7, CURRENT_DATE())
+    ROUND(SUM(credits_used_compute), 3) as compute_credits,
+    ROUND(SUM(credits_used_cloud_services), 3) as cloud_services_credits
+FROM SNOWFLAKE.ACCOUNT_USAGE.WAREHOUSE_METERING_HISTORY
+WHERE start_time >= DATEADD(day, -7, CURRENT_DATE())
 GROUP BY usage_date, warehouse_name
 ORDER BY usage_date DESC, total_credits DESC;
 ```
@@ -562,43 +597,31 @@ ORDER BY pass_rate_pct ASC, model_name;
 
 ```sql
 -- ============================================================================
--- Models to Optimize (High Cost + Slow Execution)
+-- Models to Optimize (Slowest + Most Resource Intensive)
+-- Note: Using execution time as proxy for cost (exact credits not available per-model)
 -- ============================================================================
-WITH model_stats AS (
-    SELECT 
-        SPLIT_PART(node_id, '.', -1) as model_name,
-        COUNT(*) as run_count,
-        AVG(total_node_runtime) as avg_total_node_runtime
-    FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
-    WHERE run_started_at >= DATEADD(day, -7, CURRENT_DATE())
-      AND status = 'success'
-    GROUP BY node_id
-),
-model_costs AS (
-    SELECT 
-        REGEXP_SUBSTR(query_text, 'create.*?table\\s+([\\w.]+)', 1, 1, 'ie', 1) as model_name,
-        SUM(credits_used) as total_credits,
-        AVG(total_node_runtime / 1000) as avg_seconds
-    FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
-    WHERE query_tag LIKE '%dbt%'
-      AND start_time >= DATEADD(day, -7, CURRENT_DATE())
-    GROUP BY model_name
-)
 SELECT 
-    s.model_name,
-    s.run_count,
-    ROUND(s.avg_total_node_runtime, 2) as avg_seconds,
-    ROUND(COALESCE(c.total_credits, 0), 3) as total_credits,
-    ROUND(COALESCE(c.total_credits, 0) * 3.0, 2) as estimated_cost_usd,
+    SPLIT_PART(node_id, '.', -1) as model_name,
+    COUNT(*) as run_count,
+    ROUND(SUM(total_node_runtime), 2) as total_seconds,
+    ROUND(SUM(total_node_runtime) / 60, 2) as total_minutes,
+    ROUND(AVG(total_node_runtime), 2) as avg_seconds_per_run,
+    ROUND(rows_affected, 0) as avg_rows_affected,
+    -- Estimated cost based on execution time
+    -- Formula: (total_seconds / 3600) * warehouse_cost_per_hour
+    -- Assumes X-Small warehouse ($2/hour), adjust based on your warehouse size
+    ROUND((SUM(total_node_runtime) / 3600) * 2.0, 2) as estimated_cost_usd,
     CASE 
-        WHEN s.avg_total_node_runtime > 60 AND c.total_credits > 1 THEN '🔴 High Priority'
-        WHEN s.avg_total_node_runtime > 30 AND c.total_credits > 0.5 THEN '🟡 Medium Priority'
+        WHEN SUM(total_node_runtime) > 3600 THEN '🔴 High Priority'
+        WHEN SUM(total_node_runtime) > 600 THEN '🟡 Medium Priority'
         ELSE '🟢 Low Priority'
     END as optimization_priority
-FROM model_stats s
-LEFT JOIN model_costs c ON s.model_name = c.model_name
-WHERE s.avg_total_node_runtime > 10 OR c.total_credits > 0.1
-ORDER BY c.total_credits DESC, s.avg_total_node_runtime DESC
+FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
+WHERE run_started_at >= DATEADD(day, -7, CURRENT_DATE())
+  AND status = 'success'
+GROUP BY node_id, rows_affected
+HAVING SUM(total_node_runtime) > 10  -- Focus on models taking >10 seconds total
+ORDER BY total_seconds DESC
 LIMIT 20;
 ```
 
@@ -633,19 +656,17 @@ last_week AS (
         SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as failures
     FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
     WHERE run_started_at >= DATEADD(week, -1, DATE_TRUNC('week', CURRENT_DATE()))
-      AND generated_at < DATE_TRUNC('week', CURRENT_DATE())
+      AND run_started_at < DATE_TRUNC('week', CURRENT_DATE())
 ),
 this_week_cost AS (
     SELECT ROUND(SUM(credits_used), 2) as credits
-    FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
-    WHERE query_tag LIKE '%dbt%'
-      AND start_time >= DATE_TRUNC('week', CURRENT_DATE())
+    FROM SNOWFLAKE.ACCOUNT_USAGE.WAREHOUSE_METERING_HISTORY
+    WHERE start_time >= DATE_TRUNC('week', CURRENT_DATE())
 ),
 last_week_cost AS (
     SELECT ROUND(SUM(credits_used), 2) as credits
-    FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
-    WHERE query_tag LIKE '%dbt%'
-      AND start_time >= DATEADD(week, -1, DATE_TRUNC('week', CURRENT_DATE()))
+    FROM SNOWFLAKE.ACCOUNT_USAGE.WAREHOUSE_METERING_HISTORY
+    WHERE start_time >= DATEADD(week, -1, DATE_TRUNC('week', CURRENT_DATE()))
       AND start_time < DATE_TRUNC('week', CURRENT_DATE())
 )
 SELECT 
