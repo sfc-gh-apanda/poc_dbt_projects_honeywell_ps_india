@@ -101,6 +101,27 @@ models:
           combination_of_columns:
             - customer_num_sk
             - source_system
+      
+      # dbt_expectations: Dimension quality checks
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          min_value: 100  # At least 100 customers
+          max_value: 10000000  # Up to 10M customers
+          config:
+            severity: warn
+      
+      # Check all customers have names
+      - dbt_expectations.expect_column_values_to_not_be_null:
+          column_name: customer_name
+          config:
+            severity: warn
+            warn_if: ">5"  # Warn if >5 customers missing names
+      
+      # Validate customer_type values
+      - dbt_expectations.expect_column_distinct_count_to_equal:
+          column_name: customer_type
+          value: 2  # Should only have 'E' and 'I'
+          config:
+            severity: error
 
   - name: dim_fiscal_calendar
     description: "Shared fiscal calendar - published API for all domain projects"
@@ -180,4 +201,33 @@ models:
           expression: "fiscal_period_int between 1 and 12"
       - dbt_utils.expression_is_true:
           expression: "fiscal_year_int >= 2020"
+      
+      # dbt_expectations: Fiscal calendar quality checks
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          min_value: 365  # At least 1 year of dates
+          max_value: 7300  # Max 20 years of dates
+          config:
+            severity: warn
+      
+      # Validate fiscal period range
+      - dbt_expectations.expect_column_values_to_be_between:
+          column_name: fiscal_period_int
+          min_value: 1
+          max_value: 12
+          config:
+            severity: error
+      
+      # Validate fiscal year range
+      - dbt_expectations.expect_column_values_to_be_between:
+          column_name: fiscal_year_int
+          min_value: 2020
+          max_value: 2050
+          config:
+            severity: error
+      
+      # Check for gaps in dates (should be continuous)
+      - dbt_expectations.expect_table_row_count_to_equal_other_table:
+          compare_model: source('corp_ref', 'time_fiscal_day')
+          config:
+            severity: warn
 

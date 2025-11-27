@@ -43,6 +43,17 @@ models:
         description: "Invoice amount in USD (month-end exchange rate)"
         tests:
           - not_null
+          
+          # dbt_expectations: Value bounds and distribution checks
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              max_value: 10000000  # $10M max per line
+              config:
+                severity: error
+          
+          - dbt_expectations.expect_column_values_to_not_be_null:
+              config:
+                severity: error
       
       - name: amt_doc
         description: "Invoice amount in document currency"
@@ -164,4 +175,27 @@ models:
             - document_number
             - document_line
             - document_year
+      
+      # dbt_expectations: Table-level quality checks
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          min_value: 500  # Minimum expected AR records
+          max_value: 20000000  # Max 20M records
+          config:
+            severity: warn
+      
+      # Check for recent data (within last 2 days)
+      - dbt_expectations.expect_row_values_to_have_recent_data:
+          datepart: day
+          interval: 2
+          timestamp_column: _stg_loaded_at
+          config:
+            severity: error
+      
+      # Ensure no future posting dates
+      - dbt_expectations.expect_column_values_to_be_between:
+          column_name: posting_date
+          min_value: "1900-01-01"
+          max_value: "current_date + 30"  # Allow up to 30 days future
+          config:
+            severity: warn
 

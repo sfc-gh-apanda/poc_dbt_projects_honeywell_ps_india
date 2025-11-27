@@ -52,6 +52,19 @@ models:
           - not_null
           - dbt_utils.expression_is_true:
               expression: ">= 0"
+          
+          # dbt_expectations: Statistical validation
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              max_value: 10000000  # $10M max per invoice line
+              config:
+                severity: error
+          
+          - dbt_expectations.expect_column_mean_to_be_between:
+              min_value: 100
+              max_value: 100000  # Average invoice should be $100-$100K
+              config:
+                severity: warn
       
       - name: posting_date
         description: "Date invoice was posted"
@@ -67,6 +80,13 @@ models:
         description: "Number of days past due (negative = not yet due)"
         tests:
           - not_null
+          
+          # dbt_expectations: Reasonable range for days late
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: -365  # Up to 1 year early
+              max_value: 1825  # Up to 5 years late
+              config:
+                severity: warn
       
       - name: aging_bucket
         description: "Aging category bucket"
@@ -116,4 +136,42 @@ models:
           expression: "current_amt + past_due_amt = amt_usd_me"
           config:
             severity: warn
+      
+      # dbt_expectations: Table-level data quality checks
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          min_value: 1000  # Expect at least 1K AR records
+          max_value: 10000000  # Up to 10M records
+          config:
+            severity: warn
+      
+      - dbt_expectations.expect_table_columns_to_match_ordered_list:
+          column_list: 
+            - snapshot_date
+            - source_system
+            - company_code
+            - document_number
+            - document_line
+            - customer_number
+            - customer_name
+            - customer_type_flag
+            - amt_usd_me
+            - posting_date
+            - due_date
+            - days_late
+            - aging_bucket
+            - past_due_flag
+            - current_amt
+            - past_due_amt
+            - fiscal_year_period
+            - loaded_at
+          config:
+            severity: warn
+      
+      # Check for data freshness
+      - dbt_expectations.expect_row_values_to_have_recent_data:
+          datepart: day
+          interval: 1
+          timestamp_column: loaded_at
+          config:
+            severity: error
 
