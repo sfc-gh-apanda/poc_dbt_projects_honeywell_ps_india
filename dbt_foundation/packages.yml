@@ -9,7 +9,7 @@ packages:
   
   # OBSERVABILITY: DBT execution tracking
   - package: brooklyn-data/dbt_artifacts
-    version: 2.6.1
+    version: 2.9.3
   
   # OBSERVABILITY: Snowflake query & cost monitoring
   - package: get-select/dbt-snowflake-monitoring

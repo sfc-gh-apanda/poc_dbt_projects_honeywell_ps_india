@@ -20,7 +20,7 @@ packages:
   
   # OBSERVABILITY: DBT execution tracking
   - package: brooklyn-data/dbt_artifacts
-    version: 2.6.1
+    version: 2.9.3
     # Why: Model performance, test results, execution history
     # Stores metadata in Snowflake tables for Snowsight dashboards
   
