@@ -24,9 +24,9 @@ packages:
     # Why: Model performance, test results, execution history
     # Stores metadata in Snowflake tables for Snowsight dashboards
   
-  # OBSERVABILITY: Snowflake query & cost monitoring
-  - package: get-select/dbt-snowflake-monitoring
-    version: 3.0.0
+  # OBSERVABILITY: Snowflake query & cost monitoring (from GitHub)
+  - git: "https://github.com/get-select/dbt-snowflake-monitoring.git"
+    revision: v3.0.0
     # Why: Query costs, warehouse utilization, performance optimization
     # Snowflake-native monitoring with dashboard support
   

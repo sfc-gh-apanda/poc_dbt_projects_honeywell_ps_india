@@ -11,9 +11,9 @@ packages:
   - package: brooklyn-data/dbt_artifacts
     version: 2.9.3
   
-  # OBSERVABILITY: Snowflake query & cost monitoring
-  - package: get-select/dbt-snowflake-monitoring
-    version: 3.0.0
+  # OBSERVABILITY: Snowflake query & cost monitoring (from GitHub)
+  - git: "https://github.com/get-select/dbt-snowflake-monitoring.git"
+    revision: v3.0.0
   
   # OPTIONAL: Date utilities (uncomment if needed)
   # - package: calogica/dbt_date
