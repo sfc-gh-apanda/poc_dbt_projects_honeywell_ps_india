@@ -65,11 +65,11 @@ WHERE query_tag LIKE '%dbt%';
 WITH today_runs AS (
     SELECT 
         COUNT(DISTINCT node_id) as models_run,
-        SUM(execution_time) as total_seconds,
+        SUM(total_node_runtime) as total_seconds,
         SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successful_models,
         SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as failed_models
     FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
-    WHERE DATE(generated_at) = CURRENT_DATE()
+    WHERE DATE(run_started_at) = CURRENT_DATE()
 ),
 today_tests AS (
     SELECT 
@@ -77,7 +77,7 @@ today_tests AS (
         SUM(CASE WHEN status = 'pass' THEN 1 ELSE 0 END) as passed_tests,
         SUM(CASE WHEN status = 'fail' THEN 1 ELSE 0 END) as failed_tests
     FROM DBT_ARTIFACTS.TEST_EXECUTIONS
-    WHERE DATE(generated_at) = CURRENT_DATE()
+    WHERE DATE(run_started_at) = CURRENT_DATE()
 ),
 today_costs AS (
     SELECT 
@@ -122,15 +122,15 @@ CROSS JOIN today_costs c;
 -- Daily Model Execution Trends (Last 30 Days)
 -- ============================================================================
 SELECT 
-    DATE(generated_at) as execution_date,
+    DATE(run_started_at) as execution_date,
     COUNT(DISTINCT node_id) as models_run,
-    ROUND(SUM(execution_time) / 60, 1) as total_minutes,
-    ROUND(AVG(execution_time), 2) as avg_seconds,
+    ROUND(SUM(total_node_runtime) / 60, 1) as total_minutes,
+    ROUND(AVG(total_node_runtime), 2) as avg_seconds,
     SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successful,
     SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as failed,
     ROUND(SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) as success_rate_pct
 FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
-WHERE generated_at >= DATEADD(day, -30, CURRENT_DATE())
+WHERE run_started_at >= DATEADD(day, -30, CURRENT_DATE())
 GROUP BY execution_date
 ORDER BY execution_date DESC;
 ```
@@ -157,18 +157,18 @@ ORDER BY execution_date DESC;
 SELECT 
     SPLIT_PART(node_id, '.', -1) as model_name,
     COUNT(*) as run_count,
-    ROUND(AVG(execution_time), 2) as avg_seconds,
-    ROUND(MAX(execution_time), 2) as max_seconds,
-    ROUND(MIN(execution_time), 2) as min_seconds,
-    ROUND(STDDEV(execution_time), 2) as stddev_seconds,
+    ROUND(AVG(total_node_runtime), 2) as avg_seconds,
+    ROUND(MAX(total_node_runtime), 2) as max_seconds,
+    ROUND(MIN(total_node_runtime), 2) as min_seconds,
+    ROUND(STDDEV(total_node_runtime), 2) as stddev_seconds,
     CASE 
-        WHEN AVG(execution_time) > 300 THEN '🔴 CRITICAL'
-        WHEN AVG(execution_time) > 60 THEN '🟡 SLOW'
-        WHEN AVG(execution_time) > 10 THEN '🟢 MODERATE'
+        WHEN AVG(total_node_runtime) > 300 THEN '🔴 CRITICAL'
+        WHEN AVG(total_node_runtime) > 60 THEN '🟡 SLOW'
+        WHEN AVG(total_node_runtime) > 10 THEN '🟢 MODERATE'
         ELSE '⚪ FAST'
     END as performance_tier
 FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
-WHERE generated_at >= DATEADD(day, -7, CURRENT_DATE())
+WHERE run_started_at >= DATEADD(day, -7, CURRENT_DATE())
   AND status = 'success'
 GROUP BY node_id
 ORDER BY avg_seconds DESC
@@ -195,12 +195,12 @@ LIMIT 10;
 -- Test Pass Rate Trend (Last 30 Days)
 -- ============================================================================
 SELECT 
-    DATE(generated_at) as test_date,
+    DATE(run_started_at) as test_date,
     status,
     COUNT(*) as test_count,
-    ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (PARTITION BY DATE(generated_at)), 2) as percentage
+    ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (PARTITION BY DATE(run_started_at)), 2) as percentage
 FROM DBT_ARTIFACTS.TEST_EXECUTIONS
-WHERE generated_at >= DATEADD(day, -30, CURRENT_DATE())
+WHERE run_started_at >= DATEADD(day, -30, CURRENT_DATE())
 GROUP BY test_date, status
 ORDER BY test_date DESC, status;
 ```
@@ -231,7 +231,7 @@ ORDER BY test_date DESC, status;
 SELECT 
     DATE(start_time) as query_date,
     COUNT(*) as query_count,
-    ROUND(SUM(execution_time) / 1000 / 60, 1) as total_minutes,
+    ROUND(SUM(total_node_runtime) / 1000 / 60, 1) as total_minutes,
     ROUND(SUM(credits_used), 3) as total_credits,
     ROUND(SUM(credits_used) * 3.0, 2) as estimated_cost_usd,  -- Adjust rate as needed
     ROUND(AVG(credits_used), 4) as avg_credits_per_query,
@@ -267,7 +267,7 @@ ORDER BY query_date DESC;
 WITH dbt_queries AS (
     SELECT 
         query_text,
-        execution_time,
+        total_node_runtime,
         credits_used,
         start_time,
         -- Extract model name from query
@@ -282,7 +282,7 @@ SELECT
     COUNT(*) as run_count,
     ROUND(SUM(credits_used), 3) as total_credits,
     ROUND(SUM(credits_used) * 3.0, 2) as estimated_cost_usd,
-    ROUND(AVG(execution_time / 1000), 2) as avg_seconds,
+    ROUND(AVG(total_node_runtime / 1000), 2) as avg_seconds,
     ROUND(SUM(credits_used) / COUNT(*), 4) as avg_credits_per_run
 FROM dbt_queries
 WHERE model_name IS NOT NULL
@@ -310,16 +310,16 @@ LIMIT 10;
 -- Recent Test Failures (Last 24 Hours)
 -- ============================================================================
 SELECT 
-    generated_at as failure_time,
+    run_started_at as failure_time,
     SPLIT_PART(node_id, '.', -1) as test_name,
     status,
     failures as failed_row_count,
     SUBSTRING(message, 1, 100) as error_message,
-    ROUND(execution_time, 2) as execution_seconds
+    ROUND(total_node_runtime, 2) as execution_seconds
 FROM DBT_ARTIFACTS.TEST_EXECUTIONS
 WHERE status IN ('fail', 'error')
-  AND generated_at >= DATEADD(hour, -24, CURRENT_DATE())
-ORDER BY generated_at DESC;
+  AND run_started_at >= DATEADD(hour, -24, CURRENT_DATE())
+ORDER BY run_started_at DESC;
 ```
 
 **Alert Configuration:**
@@ -346,27 +346,27 @@ ORDER BY generated_at DESC;
 -- ============================================================================
 WITH execution_buckets AS (
     SELECT 
-        execution_time,
+        total_node_runtime,
         CASE 
-            WHEN execution_time < 1 THEN '< 1s'
-            WHEN execution_time < 5 THEN '1-5s'
-            WHEN execution_time < 10 THEN '5-10s'
-            WHEN execution_time < 30 THEN '10-30s'
-            WHEN execution_time < 60 THEN '30-60s'
-            WHEN execution_time < 300 THEN '1-5min'
+            WHEN total_node_runtime < 1 THEN '< 1s'
+            WHEN total_node_runtime < 5 THEN '1-5s'
+            WHEN total_node_runtime < 10 THEN '5-10s'
+            WHEN total_node_runtime < 30 THEN '10-30s'
+            WHEN total_node_runtime < 60 THEN '30-60s'
+            WHEN total_node_runtime < 300 THEN '1-5min'
             ELSE '> 5min'
         END as time_bucket,
         CASE 
-            WHEN execution_time < 1 THEN 1
-            WHEN execution_time < 5 THEN 2
-            WHEN execution_time < 10 THEN 3
-            WHEN execution_time < 30 THEN 4
-            WHEN execution_time < 60 THEN 5
-            WHEN execution_time < 300 THEN 6
+            WHEN total_node_runtime < 1 THEN 1
+            WHEN total_node_runtime < 5 THEN 2
+            WHEN total_node_runtime < 10 THEN 3
+            WHEN total_node_runtime < 30 THEN 4
+            WHEN total_node_runtime < 60 THEN 5
+            WHEN total_node_runtime < 300 THEN 6
             ELSE 7
         END as bucket_order
     FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
-    WHERE generated_at >= DATEADD(day, -7, CURRENT_DATE())
+    WHERE run_started_at >= DATEADD(day, -7, CURRENT_DATE())
       AND status = 'success'
 )
 SELECT 
@@ -402,7 +402,7 @@ SELECT
     ROUND(SUM(credits_used), 3) as total_credits,
     ROUND(SUM(credits_used) * 3.0, 2) as estimated_cost_usd,
     COUNT(*) as query_count,
-    ROUND(AVG(execution_time / 1000), 2) as avg_seconds
+    ROUND(AVG(total_node_runtime / 1000), 2) as avg_seconds
 FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
 WHERE query_tag LIKE '%dbt%'
   AND start_time >= DATEADD(day, -7, CURRENT_DATE())
@@ -442,8 +442,8 @@ SELECT
         ELSE '❓ Unknown'
     END as freshness_status
 FROM DBT_ARTIFACTS.SOURCE_FRESHNESS_EXECUTIONS
-WHERE generated_at >= DATEADD(day, -7, CURRENT_DATE())
-QUALIFY ROW_NUMBER() OVER (PARTITION BY node_id ORDER BY generated_at DESC) = 1
+WHERE run_started_at >= DATEADD(day, -7, CURRENT_DATE())
+QUALIFY ROW_NUMBER() OVER (PARTITION BY node_id ORDER BY run_started_at DESC) = 1
 ORDER BY hours_since_last_load DESC;
 ```
 
@@ -467,10 +467,10 @@ WITH baseline AS (
     -- Baseline: 7-14 days ago
     SELECT 
         node_id,
-        AVG(execution_time) as baseline_avg,
-        STDDEV(execution_time) as baseline_stddev
+        AVG(total_node_runtime) as baseline_avg,
+        STDDEV(total_node_runtime) as baseline_stddev
     FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
-    WHERE generated_at BETWEEN DATEADD(day, -14, CURRENT_DATE()) 
+    WHERE run_started_at BETWEEN DATEADD(day, -14, CURRENT_DATE()) 
                            AND DATEADD(day, -7, CURRENT_DATE())
       AND status = 'success'
     GROUP BY node_id
@@ -479,9 +479,9 @@ recent AS (
     -- Recent: Last 24 hours
     SELECT 
         node_id,
-        AVG(execution_time) as recent_avg
+        AVG(total_node_runtime) as recent_avg
     FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
-    WHERE generated_at >= DATEADD(day, -1, CURRENT_DATE())
+    WHERE run_started_at >= DATEADD(day, -1, CURRENT_DATE())
       AND status = 'success'
     GROUP BY node_id
 )
@@ -527,7 +527,7 @@ WITH model_tests AS (
         SUM(CASE WHEN status = 'fail' THEN 1 ELSE 0 END) as failed,
         SUM(CASE WHEN status = 'warn' THEN 1 ELSE 0 END) as warned
     FROM DBT_ARTIFACTS.TEST_EXECUTIONS
-    WHERE generated_at >= DATEADD(day, -7, CURRENT_DATE())
+    WHERE run_started_at >= DATEADD(day, -7, CURRENT_DATE())
     GROUP BY model_name
 )
 SELECT 
@@ -568,9 +568,9 @@ WITH model_stats AS (
     SELECT 
         SPLIT_PART(node_id, '.', -1) as model_name,
         COUNT(*) as run_count,
-        AVG(execution_time) as avg_execution_time
+        AVG(total_node_runtime) as avg_total_node_runtime
     FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
-    WHERE generated_at >= DATEADD(day, -7, CURRENT_DATE())
+    WHERE run_started_at >= DATEADD(day, -7, CURRENT_DATE())
       AND status = 'success'
     GROUP BY node_id
 ),
@@ -578,7 +578,7 @@ model_costs AS (
     SELECT 
         REGEXP_SUBSTR(query_text, 'create.*?table\\s+([\\w.]+)', 1, 1, 'ie', 1) as model_name,
         SUM(credits_used) as total_credits,
-        AVG(execution_time / 1000) as avg_seconds
+        AVG(total_node_runtime / 1000) as avg_seconds
     FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
     WHERE query_tag LIKE '%dbt%'
       AND start_time >= DATEADD(day, -7, CURRENT_DATE())
@@ -587,18 +587,18 @@ model_costs AS (
 SELECT 
     s.model_name,
     s.run_count,
-    ROUND(s.avg_execution_time, 2) as avg_seconds,
+    ROUND(s.avg_total_node_runtime, 2) as avg_seconds,
     ROUND(COALESCE(c.total_credits, 0), 3) as total_credits,
     ROUND(COALESCE(c.total_credits, 0) * 3.0, 2) as estimated_cost_usd,
     CASE 
-        WHEN s.avg_execution_time > 60 AND c.total_credits > 1 THEN '🔴 High Priority'
-        WHEN s.avg_execution_time > 30 AND c.total_credits > 0.5 THEN '🟡 Medium Priority'
+        WHEN s.avg_total_node_runtime > 60 AND c.total_credits > 1 THEN '🔴 High Priority'
+        WHEN s.avg_total_node_runtime > 30 AND c.total_credits > 0.5 THEN '🟡 Medium Priority'
         ELSE '🟢 Low Priority'
     END as optimization_priority
 FROM model_stats s
 LEFT JOIN model_costs c ON s.model_name = c.model_name
-WHERE s.avg_execution_time > 10 OR c.total_credits > 0.1
-ORDER BY c.total_credits DESC, s.avg_execution_time DESC
+WHERE s.avg_total_node_runtime > 10 OR c.total_credits > 0.1
+ORDER BY c.total_credits DESC, s.avg_total_node_runtime DESC
 LIMIT 20;
 ```
 
@@ -621,18 +621,18 @@ LIMIT 20;
 WITH this_week AS (
     SELECT 
         COUNT(DISTINCT node_id) as models,
-        ROUND(SUM(execution_time) / 60, 1) as total_minutes,
+        ROUND(SUM(total_node_runtime) / 60, 1) as total_minutes,
         SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as failures
     FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
-    WHERE generated_at >= DATE_TRUNC('week', CURRENT_DATE())
+    WHERE run_started_at >= DATE_TRUNC('week', CURRENT_DATE())
 ),
 last_week AS (
     SELECT 
         COUNT(DISTINCT node_id) as models,
-        ROUND(SUM(execution_time) / 60, 1) as total_minutes,
+        ROUND(SUM(total_node_runtime) / 60, 1) as total_minutes,
         SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as failures
     FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
-    WHERE generated_at >= DATEADD(week, -1, DATE_TRUNC('week', CURRENT_DATE()))
+    WHERE run_started_at >= DATEADD(week, -1, DATE_TRUNC('week', CURRENT_DATE()))
       AND generated_at < DATE_TRUNC('week', CURRENT_DATE())
 ),
 this_week_cost AS (
