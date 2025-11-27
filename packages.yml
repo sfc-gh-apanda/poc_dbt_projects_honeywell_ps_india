@@ -24,11 +24,10 @@ packages:
     # Why: Model performance, test results, execution history
     # Stores metadata in Snowflake tables for Snowsight dashboards
   
-  # OBSERVABILITY: Snowflake query & cost monitoring (from GitHub)
-  - git: "https://github.com/get-select/dbt-snowflake-monitoring.git"
-    revision: v3.0.0
-    # Why: Query costs, warehouse utilization, performance optimization
-    # Snowflake-native monitoring with dashboard support
+  # NOTE: dbt-snowflake-monitoring removed - not compatible with Snowflake Native DBT
+  # Snowflake Native DBT cannot access GitHub repos (no outbound internet access)
+  # Use SNOWFLAKE.ACCOUNT_USAGE views directly for cost monitoring instead
+  # All dashboard queries in SNOWSIGHT_DASHBOARD_QUERIES.md still work!
   
   # PRODUCTIVITY: Code generation (optional - enable when needed)
   # - package: dbt-labs/codegen

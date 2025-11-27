@@ -11,9 +11,9 @@ packages:
   - package: brooklyn-data/dbt_artifacts
     version: 2.9.3
   
-  # OBSERVABILITY: Snowflake query & cost monitoring (from GitHub)
-  - git: "https://github.com/get-select/dbt-snowflake-monitoring.git"
-    revision: v3.0.0
+  # NOTE: dbt-snowflake-monitoring removed - not compatible with Snowflake Native DBT
+  # Snowflake Native DBT cannot access GitHub repos (no outbound internet)
+  # Use SNOWFLAKE.ACCOUNT_USAGE views directly for cost monitoring instead
 
 # Note: dbt_foundation is referenced via dependencies.yml (cross-project ref)
 # packages.yml is for hub packages only
