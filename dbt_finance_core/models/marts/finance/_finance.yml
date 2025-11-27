@@ -167,7 +167,7 @@ models:
           config:
             severity: warn
       
-      # Check for data freshness (using dbt_utils.recency)
+      # Check for data freshness (using dbt_utils.recency - dbt_expectations doesn't have this test)
       - dbt_utils.recency:
           datepart: day
           field: loaded_at

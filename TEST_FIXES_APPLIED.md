@@ -1,10 +1,16 @@
 # Data Quality Test Fixes - Issue Resolution
 
-## 🐛 Issue Identified
+## 🐛 Issues Identified
 
+### **Issue 1: Invalid Freshness Test**
 **Problem:** Used `dbt_expectations.expect_row_values_to_have_recent_data` which doesn't exist in dbt_expectations 0.10.1. This test is from Elementary Data package, causing compilation errors.
 
 **Impact:** `dbt test` and `dbt run` commands would fail with "unknown macro" error.
+
+### **Issue 2: SQL Expression in Literal Parameter**
+**Problem:** Used `expect_column_values_to_be_between` with `max_value: "current_date + 30"` - a SQL expression string. This test expects literal values (like `"2025-12-27"`), not unevaluated SQL expressions.
+
+**Impact:** Test would fail or behave unexpectedly because the expression won't be evaluated - it's treated as a string literal.
 
 ---
 
@@ -41,23 +47,31 @@
 
 ---
 
-### **3. Additional Fix: Invalid Date Range Test**
+### **3. Fix for SQL Expression in Literal Parameter**
 
-**Also Fixed:** Problematic date range test that wouldn't compile properly
+**Problem:** `expect_column_values_to_be_between` doesn't evaluate SQL expressions
+
+**Why It Fails:**
+- The parameter `max_value: "current_date + 30"` is a **string literal**
+- dbt_expectations expects a concrete date like `"2025-12-27"`
+- The SQL expression won't be evaluated - it's compared as text
+- Test will always fail or produce incorrect results
 
 **Incorrect:**
 ```yaml
 - dbt_expectations.expect_column_values_to_be_between:
     column_name: posting_date
     min_value: "1900-01-01"
-    max_value: "current_date + 30"  # This expression doesn't work
+    max_value: "current_date + 30"  # ❌ Not evaluated as SQL!
 ```
 
 **Corrected:**
 ```yaml
+# Use dbt_utils.expression_is_true for dynamic SQL expressions
 - dbt_utils.expression_is_true:
-    expression: "posting_date <= dateadd(day, 30, current_date())"
+    expression: "posting_date <= dateadd(day, 30, current_date())"  # ✅ Evaluated!
     config:
+      severity: warn
       error_if: ">100"
 ```
 
@@ -164,21 +178,52 @@ tests:
 
 ### **Date Range Testing (Correct Approach):**
 
+#### **For Dynamic/Calculated Dates (Use dbt_utils):**
+
 ```yaml
-# ✅ CORRECT: Use dbt_utils.expression_is_true for date logic
+# ✅ CORRECT: Use dbt_utils.expression_is_true for SQL expressions
 tests:
   - dbt_utils.expression_is_true:
-      expression: "posting_date <= dateadd(day, 30, current_date())"
+      expression: "posting_date <= dateadd(day, 30, current_date())"  # Dynamic!
       config:
         severity: warn
 ```
 
+#### **For Fixed/Literal Dates (Use dbt_expectations):**
+
 ```yaml
-# ❌ WRONG: expect_column_values_to_be_between doesn't handle date expressions
+# ✅ CORRECT: Use expect_column_values_to_be_between for literal dates
 tests:
   - dbt_expectations.expect_column_values_to_be_between:
       column_name: posting_date
-      max_value: "current_date + 30"  # This fails
+      min_value: "2020-01-01"        # Fixed date - OK
+      max_value: "2030-12-31"        # Fixed date - OK
+      config:
+        severity: warn
+```
+
+#### **What Doesn't Work:**
+
+```yaml
+# ❌ WRONG: expect_column_values_to_be_between with SQL expressions
+tests:
+  - dbt_expectations.expect_column_values_to_be_between:
+      column_name: posting_date
+      max_value: "current_date + 30"  # ❌ String literal, not evaluated!
+      # Will compare "2025-11-27" > "current_date + 30" as text!
+```
+
+#### **Decision Tree:**
+
+```
+Need to validate dates?
+├─ Fixed/known dates? 
+│  └─ ✅ Use expect_column_values_to_be_between
+│     Example: min_value: "2020-01-01", max_value: "2030-12-31"
+│
+└─ Dynamic/calculated dates?
+   └─ ✅ Use dbt_utils.expression_is_true
+      Example: expression: "date_col <= current_date()"
 ```
 
 ---

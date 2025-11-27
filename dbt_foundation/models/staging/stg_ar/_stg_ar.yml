@@ -191,7 +191,8 @@ models:
           config:
             severity: error
       
-      # Ensure no unreasonable future posting dates (using dbt_utils expression test)
+      # Ensure no unreasonable future posting dates - using expression test
+      # Note: expect_column_values_to_be_between doesn't support SQL expressions like "current_date + 30"
       - dbt_utils.expression_is_true:
           expression: "posting_date <= dateadd(day, 30, current_date())"
           config:
