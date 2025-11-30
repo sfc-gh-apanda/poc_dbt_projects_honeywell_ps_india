@@ -14,8 +14,8 @@ packages:
   - package: brooklyn-data/dbt_artifacts
     version: 2.9.3
   
-  - package: dbt-labs/dbt_project_evaluator
-    version: 0.8.0
+  # NOTE: dbt_project_evaluator removed - has incompatible dbt_utils version requirements
+  # Use dbt built-in project checks instead
   
   # ===== PRODUCTIVITY & DEVELOPMENT =====
   - package: dbt-labs/codegen
@@ -25,9 +25,8 @@ packages:
   - package: calogica/dbt_date
     version: 0.10.0
   
-  # ===== METRICS & KPIs =====
-  - package: dbt-labs/metrics
-    version: 0.3.5
+  # NOTE: dbt-labs/metrics removed - optional package, can be added later if needed
+  # Focus on core monitoring and observability packages
   
   # NOTE: dbt-snowflake-monitoring removed - not compatible with Snowflake Native DBT
   # Snowflake Native DBT cannot access GitHub repos (no outbound internet)
