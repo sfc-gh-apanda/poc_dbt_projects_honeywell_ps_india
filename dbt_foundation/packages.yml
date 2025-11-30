@@ -27,7 +27,7 @@ packages:
   
   # ===== METRICS & KPIs =====
   - package: dbt-labs/metrics
-    version: 1.6.0
+    version: 0.3.5
   
   # NOTE: dbt-snowflake-monitoring removed - not compatible with Snowflake Native DBT
   # Snowflake Native DBT cannot access GitHub repos (no outbound internet)
