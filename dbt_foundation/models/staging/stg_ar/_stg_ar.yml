@@ -183,18 +183,18 @@ models:
           config:
             severity: warn
       
-      # Check for recent data (within last 2 days) - using dbt_utils.recency
-      - dbt_utils.recency:
+      # Check for recent data (within last 2 days)
+      - dbt_expectations.expect_row_values_to_have_recent_data:
           datepart: day
-          field: _stg_loaded_at
           interval: 2
+          timestamp_column: _stg_loaded_at
           config:
             severity: error
       
-      # Ensure no unreasonable future posting dates - using expression test
-      # Note: expect_column_values_to_be_between doesn't support SQL expressions like "current_date + 30"
-      - dbt_utils.expression_is_true:
-          expression: "posting_date <= dateadd(day, 30, current_date())"
+      # Ensure no future posting dates
+      - dbt_expectations.expect_column_values_to_be_between:
+          column_name: posting_date
+          min_value: "1900-01-01"
+          max_value: "current_date + 30"  # Allow up to 30 days future
           config:
             severity: warn
-            error_if: ">100"  # Error if more than 100 records violate

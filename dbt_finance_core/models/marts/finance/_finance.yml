@@ -167,11 +167,11 @@ models:
           config:
             severity: warn
       
-      # Check for data freshness (using dbt_utils.recency - dbt_expectations doesn't have this test)
-      - dbt_utils.recency:
+      # Check for data freshness
+      - dbt_expectations.expect_row_values_to_have_recent_data:
           datepart: day
-          field: loaded_at
           interval: 1
+          timestamp_column: loaded_at
           config:
             severity: error
 
