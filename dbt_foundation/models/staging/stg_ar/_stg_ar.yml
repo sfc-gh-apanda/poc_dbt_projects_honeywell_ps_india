@@ -187,7 +187,7 @@ models:
       - dbt_expectations.expect_row_values_to_have_recent_data:
           datepart: day
           interval: 2
-          timestamp_column: _stg_loaded_at
+          date_col: _stg_loaded_at
           config:
             severity: error
       
