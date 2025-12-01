@@ -2,14 +2,16 @@
 
 ## 📊 Overview
 
-This document provides all SQL queries needed to create a comprehensive DBT observability dashboard in Snowflake Snowsight using `dbt_artifacts` package.
+This document provides all SQL queries needed to create a comprehensive DBT observability dashboard in Snowflake Snowsight using **Query History-based monitoring** (compatible with Snowflake Native DBT).
 
 **Coverage:**
-- ✅ DBT model execution tracking
-- ✅ Test results history  
-- ✅ Source freshness monitoring
-- ✅ Warehouse utilization
+- ✅ DBT model execution tracking (via Query History)
+- ✅ Test results history (inferred from Query History)
+- ✅ Warehouse utilization & costs
 - ✅ Performance anomaly detection
+- ✅ Alert management
+
+**Key Difference:** Uses `SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY` instead of dbt_artifacts hooks (which don't work in Snowflake Native DBT).
 
 ## ⚠️ Important: Cost Tracking Limitations
 
@@ -27,36 +29,38 @@ This document provides all SQL queries needed to create a comprehensive DBT obse
 
 ## 🚀 Prerequisites
 
-### **1. Install Packages**
-
-```bash
-# In both projects
-cd dbt_foundation && dbt deps
-cd dbt_finance_core && dbt deps
-```
-
-### **2. Run DBT (Creates Monitoring Tables)**
-
-```bash
-cd dbt_foundation
-dbt run
-dbt test
-
-cd dbt_finance_core
-dbt run
-dbt test
-```
-
-### **3. Verify Tables Exist**
+### **1. Run Setup Script (One-Time)**
 
 ```sql
--- Check dbt_artifacts tables
-SHOW TABLES IN DBT_ARTIFACTS;
--- Expected: MODEL_EXECUTIONS, TEST_EXECUTIONS, SOURCE_FRESHNESS_EXECUTIONS
+-- In Snowsight, execute:
+@MASTER_SETUP_QUERY_HISTORY.sql
 
--- Check Snowflake account usage
-SELECT COUNT(*) FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY 
-WHERE query_tag LIKE '%dbt%';
+-- This creates EDW.DBT_MONITORING schema with all monitoring views
+```
+
+### **2. Run DBT Projects**
+
+```
+1. Navigate to dbt_foundation project in Snowsight
+2. Click "Build" button
+3. Navigate to dbt_finance_core project in Snowsight
+4. Click "Build" button
+```
+
+### **3. Verify Monitoring Views Exist**
+
+```sql
+-- Check monitoring schema
+USE SCHEMA EDW.DBT_MONITORING;
+SHOW VIEWS;
+
+-- Expected views: MODEL_EXECUTIONS, TEST_EXECUTIONS, DAILY_EXECUTION_SUMMARY, etc.
+
+-- Verify data
+SELECT COUNT(*) FROM EDW.DBT_MONITORING.MODEL_EXECUTIONS;
+SELECT COUNT(*) FROM EDW.DBT_MONITORING.TEST_EXECUTIONS;
+
+-- Should have data from your dbt runs (Query History captures everything)
 ```
 
 ---
@@ -77,17 +81,17 @@ WITH today_runs AS (
     SELECT 
         COUNT(DISTINCT node_id) as models_run,
         SUM(total_node_runtime) as total_seconds,
-        SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successful_models,
-        SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as failed_models
-    FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
+        SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END) as successful_models,
+        SUM(CASE WHEN status = 'FAIL' THEN 1 ELSE 0 END) as failed_models
+    FROM EDW.DBT_MONITORING.MODEL_EXECUTIONS
     WHERE DATE(run_started_at) = CURRENT_DATE()
 ),
 today_tests AS (
     SELECT 
         COUNT(*) as total_tests,
-        SUM(CASE WHEN status = 'pass' THEN 1 ELSE 0 END) as passed_tests,
-        SUM(CASE WHEN status = 'fail' THEN 1 ELSE 0 END) as failed_tests
-    FROM DBT_ARTIFACTS.TEST_EXECUTIONS
+        SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END) as passed_tests,
+        SUM(CASE WHEN status = 'FAIL' THEN 1 ELSE 0 END) as failed_tests
+    FROM EDW.DBT_MONITORING.TEST_EXECUTIONS
     WHERE DATE(run_started_at) = CURRENT_DATE()
 ),
 today_costs AS (
@@ -143,10 +147,10 @@ SELECT
     COUNT(DISTINCT node_id) as models_run,
     ROUND(SUM(total_node_runtime) / 60, 1) as total_minutes,
     ROUND(AVG(total_node_runtime), 2) as avg_seconds,
-    SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successful,
-    SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as failed,
-    ROUND(SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) as success_rate_pct
-FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
+    SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END) as successful,
+    SUM(CASE WHEN status = 'FAIL' THEN 1 ELSE 0 END) as failed,
+    ROUND(SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) as success_rate_pct
+FROM EDW.DBT_MONITORING.MODEL_EXECUTIONS
 WHERE run_started_at >= DATEADD(day, -30, CURRENT_DATE())
 GROUP BY execution_date
 ORDER BY execution_date DESC;
@@ -184,9 +188,9 @@ SELECT
         WHEN AVG(total_node_runtime) > 10 THEN '🟢 MODERATE'
         ELSE '⚪ FAST'
     END as performance_tier
-FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
+FROM EDW.DBT_MONITORING.MODEL_EXECUTIONS
 WHERE run_started_at >= DATEADD(day, -7, CURRENT_DATE())
-  AND status = 'success'
+  AND status = 'SUCCESS'
 GROUP BY node_id
 ORDER BY avg_seconds DESC
 LIMIT 10;
@@ -216,7 +220,7 @@ SELECT
     status,
     COUNT(*) as test_count,
     ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (PARTITION BY DATE(run_started_at)), 2) as percentage
-FROM DBT_ARTIFACTS.TEST_EXECUTIONS
+FROM EDW.DBT_MONITORING.TEST_EXECUTIONS
 WHERE run_started_at >= DATEADD(day, -30, CURRENT_DATE())
 GROUP BY test_date, status
 ORDER BY test_date DESC, status;
@@ -318,9 +322,9 @@ SELECT
         WHEN SUM(total_node_runtime) > 600 THEN '🟡 Medium Cost'
         ELSE '🟢 Low Cost'
     END as cost_tier
-FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
+FROM EDW.DBT_MONITORING.MODEL_EXECUTIONS
 WHERE run_started_at >= DATEADD(day, -7, CURRENT_DATE())
-  AND status = 'success'
+  AND status = 'SUCCESS'
 GROUP BY node_id
 ORDER BY total_seconds DESC
 LIMIT 10;
@@ -351,7 +355,7 @@ SELECT
     failures as failed_row_count,
     SUBSTRING(message, 1, 100) as error_message,
     ROUND(total_node_runtime, 2) as execution_seconds
-FROM DBT_ARTIFACTS.TEST_EXECUTIONS
+FROM EDW.DBT_MONITORING.TEST_EXECUTIONS
 WHERE status IN ('fail', 'error')
   AND run_started_at >= DATEADD(hour, -24, CURRENT_DATE())
 ORDER BY run_started_at DESC;
@@ -364,8 +368,8 @@ ORDER BY run_started_at DESC;
 - Frequency: Immediate
 
 **Display:**
-- Red highlight for `status = 'error'`
-- Orange highlight for `status = 'fail'`
+- Red highlight for `status = 'FAIL'`
+- Orange highlight for `status = 'FAIL'`
 
 ---
 
@@ -400,9 +404,9 @@ WITH execution_buckets AS (
             WHEN total_node_runtime < 300 THEN 6
             ELSE 7
         END as bucket_order
-    FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
+    FROM EDW.DBT_MONITORING.MODEL_EXECUTIONS
     WHERE run_started_at >= DATEADD(day, -7, CURRENT_DATE())
-      AND status = 'success'
+      AND status = 'SUCCESS'
 )
 SELECT 
     time_bucket,
@@ -460,31 +464,43 @@ ORDER BY usage_date DESC, total_credits DESC;
 **Type:** Table with status indicators  
 **Refresh:** Every 15 minutes  
 
+⚠️ **Note:** This query requires running `dbt source freshness` which is not typically used in Snowflake Native DBT. Use alternative monitoring via `LOAD_TS` columns in source tables instead.
+
 ```sql
 -- ============================================================================
--- Source Freshness Checks (Most Recent)
+-- Alternative: Source Table Freshness (Using LOAD_TS columns)
 -- ============================================================================
+-- Check when source tables were last loaded
 SELECT 
-    SPLIT_PART(node_id, '.', -1) as source_name,
-    status,
-    max_loaded_at as last_data_timestamp,
-    snapshotted_at as check_timestamp,
-    DATEDIFF('hour', max_loaded_at, snapshotted_at) as hours_since_last_load,
+    'FACT_ACCOUNT_RECEIVABLE_GBL' as source_table,
+    MAX(LOAD_TS) as last_load_timestamp,
+    DATEDIFF('hour', MAX(LOAD_TS), CURRENT_TIMESTAMP()) as hours_since_load,
     CASE 
-        WHEN status = 'pass' THEN '✅ Fresh'
-        WHEN status = 'warn' THEN '⚠️ Warning'
-        WHEN status = 'error' THEN '❌ Stale'
-        ELSE '❓ Unknown'
+        WHEN DATEDIFF('hour', MAX(LOAD_TS), CURRENT_TIMESTAMP()) <= 24 THEN '✅ Fresh'
+        WHEN DATEDIFF('hour', MAX(LOAD_TS), CURRENT_TIMESTAMP()) <= 48 THEN '⚠️ Warning'
+        ELSE '❌ Stale'
     END as freshness_status
-FROM DBT_ARTIFACTS.SOURCE_FRESHNESS_EXECUTIONS
-WHERE run_started_at >= DATEADD(day, -7, CURRENT_DATE())
-QUALIFY ROW_NUMBER() OVER (PARTITION BY node_id ORDER BY run_started_at DESC) = 1
-ORDER BY hours_since_last_load DESC;
+FROM EDW.CORP_TRAN.FACT_ACCOUNT_RECEIVABLE_GBL
+
+UNION ALL
+
+SELECT 
+    'DIM_CUSTOMER',
+    MAX(LOAD_TS),
+    DATEDIFF('hour', MAX(LOAD_TS), CURRENT_TIMESTAMP()),
+    CASE 
+        WHEN DATEDIFF('hour', MAX(LOAD_TS), CURRENT_TIMESTAMP()) <= 48 THEN '✅ Fresh'
+        WHEN DATEDIFF('hour', MAX(LOAD_TS), CURRENT_TIMESTAMP()) <= 72 THEN '⚠️ Warning'
+        ELSE '❌ Stale'
+    END
+FROM EDW.CORP_MASTER.DIM_CUSTOMER
+
+ORDER BY hours_since_load DESC;
 ```
 
 **Display:**
-- Conditional formatting by `status`
-- Alert when any source has `status = 'error'`
+- Conditional formatting by `freshness_status`
+- Alert when any source is '❌ Stale'
 
 ---
 
@@ -504,10 +520,10 @@ WITH baseline AS (
         node_id,
         AVG(total_node_runtime) as baseline_avg,
         STDDEV(total_node_runtime) as baseline_stddev
-    FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
+    FROM EDW.DBT_MONITORING.MODEL_EXECUTIONS
     WHERE run_started_at BETWEEN DATEADD(day, -14, CURRENT_DATE()) 
                            AND DATEADD(day, -7, CURRENT_DATE())
-      AND status = 'success'
+      AND status = 'SUCCESS'
     GROUP BY node_id
 ),
 recent AS (
@@ -515,9 +531,9 @@ recent AS (
     SELECT 
         node_id,
         AVG(total_node_runtime) as recent_avg
-    FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
+    FROM EDW.DBT_MONITORING.MODEL_EXECUTIONS
     WHERE run_started_at >= DATEADD(day, -1, CURRENT_DATE())
-      AND status = 'success'
+      AND status = 'SUCCESS'
     GROUP BY node_id
 )
 SELECT 
@@ -558,10 +574,10 @@ WITH model_tests AS (
         -- Extract model name from test node_id
         SPLIT_PART(SPLIT_PART(node_id, '.', 4), '_', 1) as model_name,
         COUNT(DISTINCT node_id) as test_count,
-        SUM(CASE WHEN status = 'pass' THEN 1 ELSE 0 END) as passed,
-        SUM(CASE WHEN status = 'fail' THEN 1 ELSE 0 END) as failed,
+        SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END) as passed,
+        SUM(CASE WHEN status = 'FAIL' THEN 1 ELSE 0 END) as failed,
         SUM(CASE WHEN status = 'warn' THEN 1 ELSE 0 END) as warned
-    FROM DBT_ARTIFACTS.TEST_EXECUTIONS
+    FROM EDW.DBT_MONITORING.TEST_EXECUTIONS
     WHERE run_started_at >= DATEADD(day, -7, CURRENT_DATE())
     GROUP BY model_name
 )
@@ -616,9 +632,9 @@ SELECT
         WHEN SUM(total_node_runtime) > 600 THEN '🟡 Medium Priority'
         ELSE '🟢 Low Priority'
     END as optimization_priority
-FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
+FROM EDW.DBT_MONITORING.MODEL_EXECUTIONS
 WHERE run_started_at >= DATEADD(day, -7, CURRENT_DATE())
-  AND status = 'success'
+  AND status = 'SUCCESS'
 GROUP BY node_id, rows_affected
 HAVING SUM(total_node_runtime) > 10  -- Focus on models taking >10 seconds total
 ORDER BY total_seconds DESC
@@ -645,16 +661,16 @@ WITH this_week AS (
     SELECT 
         COUNT(DISTINCT node_id) as models,
         ROUND(SUM(total_node_runtime) / 60, 1) as total_minutes,
-        SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as failures
-    FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
+        SUM(CASE WHEN status = 'FAIL' THEN 1 ELSE 0 END) as failures
+    FROM EDW.DBT_MONITORING.MODEL_EXECUTIONS
     WHERE run_started_at >= DATE_TRUNC('week', CURRENT_DATE())
 ),
 last_week AS (
     SELECT 
         COUNT(DISTINCT node_id) as models,
         ROUND(SUM(total_node_runtime) / 60, 1) as total_minutes,
-        SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as failures
-    FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
+        SUM(CASE WHEN status = 'FAIL' THEN 1 ELSE 0 END) as failures
+    FROM EDW.DBT_MONITORING.MODEL_EXECUTIONS
     WHERE run_started_at >= DATEADD(week, -1, DATE_TRUNC('week', CURRENT_DATE()))
       AND run_started_at < DATE_TRUNC('week', CURRENT_DATE())
 ),
@@ -786,7 +802,7 @@ Priority: Medium
 
 #### **Alert 4: Source Staleness (Tile 10)**
 ```
-Condition: Any source with status = 'error'
+Condition: Any source with status = 'FAIL'
 Recipients: data-ops@company.com
 Subject: ⚠️ Data Source Freshness Alert
 Frequency: Every 15 minutes
@@ -875,7 +891,7 @@ dbt test
 
 ```sql
 -- Check if any data exists
-SELECT COUNT(*) FROM DBT_ARTIFACTS.MODEL_EXECUTIONS;
+SELECT COUNT(*) FROM EDW.DBT_MONITORING.MODEL_EXECUTIONS;
 
 -- If 0, run dbt again to populate
 dbt run
@@ -1098,7 +1114,7 @@ SELECT
         ELSE 'Other Tests'
     END as test_category,
     COUNT(*) as failure_count
-FROM DBT_ARTIFACTS.TEST_EXECUTIONS
+FROM EDW.DBT_MONITORING.TEST_EXECUTIONS
 WHERE status IN ('fail', 'error')
   AND generated_at >= DATEADD(day, -30, CURRENT_DATE())
 GROUP BY 1, 2
@@ -1559,20 +1575,20 @@ WITH yesterday_summary AS (
     SELECT 
         DATE(run_started_at) as report_date,
         COUNT(DISTINCT node_id) as models_run,
-        SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successful_models,
-        SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as failed_models,
+        SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END) as successful_models,
+        SUM(CASE WHEN status = 'FAIL' THEN 1 ELSE 0 END) as failed_models,
         ROUND(SUM(total_node_runtime) / 60, 2) as total_minutes,
         ROUND(AVG(total_node_runtime), 1) as avg_seconds
-    FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
+    FROM EDW.DBT_MONITORING.MODEL_EXECUTIONS
     WHERE DATE(run_started_at) = CURRENT_DATE() - 1
     GROUP BY 1
 ),
 yesterday_tests AS (
     SELECT 
         COUNT(*) as total_tests,
-        SUM(CASE WHEN status = 'pass' THEN 1 ELSE 0 END) as passed_tests,
-        ROUND(SUM(CASE WHEN status = 'pass' THEN 1 ELSE 0 END)::FLOAT / COUNT(*) * 100, 1) as pass_rate
-    FROM DBT_ARTIFACTS.TEST_EXECUTIONS
+        SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END) as passed_tests,
+        ROUND(SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END)::FLOAT / COUNT(*) * 100, 1) as pass_rate
+    FROM EDW.DBT_MONITORING.TEST_EXECUTIONS
     WHERE DATE(run_started_at) = CURRENT_DATE() - 1
 ),
 yesterday_alerts AS (
@@ -1625,7 +1641,7 @@ FROM DBT_MONITORING.MODEL_EXECUTION_TRENDS
 WHERE model_name IN (
     -- Top 10 most frequently run models
     SELECT SPLIT_PART(node_id, '.', -1)
-    FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
+    FROM EDW.DBT_MONITORING.MODEL_EXECUTIONS
     WHERE generated_at >= DATEADD(day, -7, CURRENT_DATE())
     GROUP BY 1
     ORDER BY COUNT(*) DESC
@@ -1649,9 +1665,9 @@ SELECT
     COUNT(*) as total_executions,
     ROUND(AVG(total_node_runtime), 1) as avg_runtime_seconds,
     ROUND(SUM(total_node_runtime) / 60, 2) as total_runtime_minutes
-FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
+FROM EDW.DBT_MONITORING.MODEL_EXECUTIONS
 WHERE run_started_at >= DATEADD(day, -7, CURRENT_DATE())
-  AND status = 'success'
+  AND status = 'SUCCESS'
 GROUP BY 1
 ORDER BY 1;
 ```
@@ -1670,9 +1686,9 @@ WITH model_test_counts AS (
     SELECT 
         SPLIT_PART(te.node_id, '.', 2) as model_name,
         COUNT(DISTINCT te.node_id) as test_count,
-        SUM(CASE WHEN te.status = 'pass' THEN 1 ELSE 0 END) as passing_tests,
+        SUM(CASE WHEN te.status = 'SUCCESS' THEN 1 ELSE 0 END) as passing_tests,
         SUM(CASE WHEN te.status IN ('fail', 'error') THEN 1 ELSE 0 END) as failing_tests
-    FROM DBT_ARTIFACTS.TEST_EXECUTIONS te
+    FROM EDW.DBT_MONITORING.TEST_EXECUTIONS te
     WHERE te.generated_at >= DATEADD(day, -1, CURRENT_DATE())
     GROUP BY 1
 )
