@@ -184,10 +184,11 @@ models:
             severity: warn
       
       # Check for recent data (within last 2 days)
-      - dbt_expectations.expect_row_values_to_have_recent_data:
+      # Using dbt_utils recency test instead of dbt_expectations (compatibility)
+      - dbt_utils.recency:
           datepart: day
+          field: _stg_loaded_at
           interval: 2
-          date_col: _stg_loaded_at
           config:
             severity: error
       
