@@ -247,7 +247,24 @@ WHERE status = 'error'
 ORDER BY failure_count_last_7_days DESC, run_started_at DESC;
 
 -- Alert 3.4: Stale Data Sources
+-- NOTE: This view requires SOURCE_FRESHNESS_EXECUTIONS table which is created when you run 'dbt source freshness'
+-- If you haven't configured source freshness checks yet, this view will be empty but won't error
 CREATE OR REPLACE VIEW ALERT_STALE_SOURCES AS
+SELECT 
+    'placeholder' as node_id,
+    'No source freshness configured' as source_name,
+    CURRENT_TIMESTAMP() as max_loaded_at,
+    CURRENT_TIMESTAMP() as snapshotted_at,
+    CURRENT_TIMESTAMP() as checked_at,
+    0 as hours_stale,
+    0 as days_stale,
+    'N/A' as status,
+    'LOW' as severity,
+    'Source freshness monitoring not yet configured' as alert_description
+WHERE 1=0; -- Returns empty result set until SOURCE_FRESHNESS_EXECUTIONS exists
+
+-- Once you configure source freshness checks, replace above with:
+/*
 SELECT 
     node_id,
     SPLIT_PART(node_id, '.', -1) as source_name,
@@ -268,7 +285,8 @@ FROM DEV_DBT.SOURCE_FRESHNESS_EXECUTIONS
 WHERE run_started_at >= DATEADD(day, -1, CURRENT_DATE())
   AND (status = 'error' OR DATEDIFF('hour', max_loaded_at, CURRENT_TIMESTAMP()) > 24)
 QUALIFY ROW_NUMBER() OVER (PARTITION BY node_id ORDER BY run_started_at DESC) = 1
-ORDER BY hours_stale DESC;
+ORDER BY hours_stale DESC
+*/;
 
 -- Alert 3.5: All Critical Alerts (Composite)
 CREATE OR REPLACE VIEW ALERT_ALL_CRITICAL AS
