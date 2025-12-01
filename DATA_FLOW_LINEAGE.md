@@ -8,25 +8,25 @@
 
 ## 📊 Overview
 
-This document provides a complete view of data lineage from **3 source tables** through **4 transformation layers** to produce **2 business-ready AR aging reports**.
+This document provides a complete view of data lineage from **4 source tables** through **4 transformation layers** to produce **2 business-ready AR aging reports**.
 
 ### Quick Summary
 
 | Aspect | Details |
 |--------|---------|
-| **Initial Source Tables** | 3 tables |
+| **Initial Source Tables** | 4 tables |
 | **Transformation Layers** | 4 layers (Source → Staging → Dimension → Mart) |
 | **Staging Models** | 1 model |
 | **Dimension Models** | 2 models |
 | **Final Marts** | 2 AR aging reports |
 | **dbt Projects** | 2 projects (foundation + finance_core) |
-| **Total Data Assets** | 8 data objects (3 sources + 5 dbt models) |
+| **Total Data Assets** | 9 data objects (4 sources + 5 dbt models) |
 
 ---
 
 ## 🗂️ Source Tables (Layer 1)
 
-### **Total Source Tables: 3**
+### **Total Source Tables: 4**
 
 All source tables reside in the **EDW** database.
 
@@ -80,11 +80,39 @@ Key Fields:
 - **MDM:** duns_number, global_ultimate_duns, global_ultimate_name
 - **Metadata:** load_ts, update_ts
 
-**Sample Data:** 100 records via `LOAD_SAMPLE_SOURCE_DATA.sql` → `CUSTOMER`
+**Sample Data:** 100 records via `LOAD_SAMPLE_SOURCE_DATA.sql`
 
 ---
 
-#### 3️⃣ Reference Data
+#### 3️⃣ Master Data - Entities
+
+**Table:** `EDW.CORP_MASTER.DIM_ENTITY`
+
+```yaml
+Purpose: Legal entity master data
+Schema: CORP_MASTER
+Row Count: 8 entities
+Grain: One row per legal entity per source system
+Key Fields:
+  - source_entity_code_sk (company code)
+  - source_system
+```
+
+**Key Attributes:**
+- **Identity:** entity_name, entity_country_name
+- **Geography:** entity_global_region, entity_global_sub_region, entity_global_sub_region_name
+- **Categorization:** entity_region_category, entity_region_sub_category
+- **Status:** entity_status (Active/Inactive)
+- **Metadata:** load_ts, update_ts
+
+**Sample Data:** 8 records via `LOAD_SAMPLE_SOURCE_DATA.sql`
+- BRP900: 2 entities (US, Canada)
+- CIP900: 3 entities (Germany, France, UK)
+- CIP300: 3 entities (Singapore, China, Japan)
+
+---
+
+#### 4️⃣ Reference Data
 
 **Table:** `EDW.CORP_REF.TIME_FISCAL_DAY`
 
@@ -121,7 +149,7 @@ Key Field: fiscal_day_key_str (YYYYMMDD)
    │  FACT_ACCOUNT_RECEIVABLE_   │
    │  GBL                        │
    │  • All AR transactions      │
-   │  • 8 source systems         │
+   │  • 3 source systems         │
    │  • Open & cleared items     │
    └──────────┬──────────────────┘
               │
@@ -130,8 +158,17 @@ Key Field: fiscal_day_key_str (YYYYMMDD)
               │         │  ─────────────────────  │
               │         │  DIM_CUSTOMER           │
               │         │  • Customer master      │
-              │         │  • 100+ customers       │
+              │         │  • 100 customers        │
               │         │  • Multi-source         │
+              │         └──────────┬──────────────┘
+              │                    │
+              │         ┌──────────┴──────────────┐
+              │         │  EDW.CORP_MASTER        │
+              │         │  ─────────────────────  │
+              │         │  DIM_ENTITY             │
+              │         │  • Legal entities       │
+              │         │  • 8 entities           │
+              │         │  • BRP/CIP/CIP300       │
               │         └──────────┬──────────────┘
               │                    │
               │                    │        ┌──────────────────────┐
@@ -488,8 +525,9 @@ LEFT JOIN dim_fiscal_calendar fc
 
 | Layer | Object | Row Count |
 |-------|--------|-----------|
-| **Source** | FACT_ACCOUNT_RECEIVABLE_GBL (via AR_INVOICE_OPEN) | 500 |
-| **Source** | DIM_CUSTOMER (via CUSTOMER) | 100 |
+| **Source** | FACT_ACCOUNT_RECEIVABLE_GBL | 500 |
+| **Source** | DIM_CUSTOMER | 100 |
+| **Source** | DIM_ENTITY | 8 |
 | **Source** | TIME_FISCAL_DAY | 730 |
 | **Staging** | STG_AR_INVOICE | ~500 |
 | **Dimension** | DIM_CUSTOMER | 100 |
@@ -503,6 +541,7 @@ LEFT JOIN dim_fiscal_calendar fc
 |-------|--------|---------------------|
 | **Source** | FACT_ACCOUNT_RECEIVABLE_GBL | 10M - 100M |
 | **Source** | DIM_CUSTOMER | 50K - 500K |
+| **Source** | DIM_ENTITY | 50 - 200 |
 | **Source** | TIME_FISCAL_DAY | 3,650 (10 years) |
 | **Staging** | STG_AR_INVOICE | 1M - 10M (open items only) |
 | **Dimension** | DIM_CUSTOMER | 50K - 500K |
