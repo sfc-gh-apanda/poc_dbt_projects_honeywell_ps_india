@@ -18,7 +18,7 @@
 
 -- PREREQUISITES CHECKLIST:
 -- ✅ 1. Both dbt projects have packages installed (dbt deps in both directories)
--- ✅ 2. dbt has been run at least once (creates DBT_ARTIFACTS tables)
+-- ✅ 2. dbt has been run at least once (creates DEV_DBT.MODEL_EXECUTIONS tables)
 -- ✅ 3. You have ACCOUNTADMIN or sufficient privileges
 -- ✅ 4. SNOWFLAKE.ACCOUNT_USAGE access granted
 -- ============================================================================
@@ -51,7 +51,7 @@ SELECT
     SUM(total_node_runtime) as total_execution_seconds,
     AVG(total_node_runtime) as avg_execution_seconds,
     MAX(total_node_runtime) as max_execution_seconds
-FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
+FROM DEV_DBT.MODEL_EXECUTIONS
 WHERE run_started_at >= DATEADD(day, -30, CURRENT_DATE())
 GROUP BY 1
 ORDER BY 1 DESC;
@@ -68,7 +68,7 @@ SELECT
     STDDEV(total_node_runtime) as stddev_execution_seconds,
     SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successful_runs,
     SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as failed_runs
-FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
+FROM DEV_DBT.MODEL_EXECUTIONS
 WHERE run_started_at >= DATEADD(day, -7, CURRENT_DATE())
 GROUP BY 1, 2
 HAVING run_count > 0
@@ -81,7 +81,7 @@ SELECT
     status,
     COUNT(*) as test_count,
     COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (PARTITION BY DATE_TRUNC('day', run_started_at)) as percentage
-FROM DBT_ARTIFACTS.TEST_EXECUTIONS
+FROM DEV_DBT.TEST_EXECUTIONS
 WHERE run_started_at >= DATEADD(day, -30, CURRENT_DATE())
 GROUP BY 1, 2
 ORDER BY 1 DESC, 2;
@@ -102,7 +102,7 @@ FROM (
         DATE_TRUNC('day', run_started_at) as execution_date,
         SPLIT_PART(node_id, '.', -1) as model_name,
         AVG(total_node_runtime) as avg_execution_seconds
-    FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
+    FROM DEV_DBT.MODEL_EXECUTIONS
     WHERE run_started_at >= DATEADD(day, -30, CURRENT_DATE())
     GROUP BY 1, 2
 )
@@ -123,7 +123,7 @@ SELECT
         WHEN AVG(total_node_runtime) > 10 THEN 'MODERATE'
         ELSE 'FAST'
     END as performance_tier
-FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
+FROM DEV_DBT.MODEL_EXECUTIONS
 WHERE run_started_at >= DATEADD(day, -7, CURRENT_DATE())
   AND status = 'success'
 GROUP BY 1, 2
@@ -158,7 +158,7 @@ SELECT
         WHEN LOWER(node_id) LIKE '%relationships%' THEN 'Referential integrity violation'
         ELSE 'Data quality check failed'
     END as alert_description
-FROM DBT_ARTIFACTS.TEST_EXECUTIONS
+FROM DEV_DBT.TEST_EXECUTIONS
 WHERE status IN ('fail', 'error')
   AND run_started_at >= DATEADD(hour, -1, CURRENT_TIMESTAMP())
 ORDER BY 
@@ -176,7 +176,7 @@ WITH model_baseline AS (
         node_id,
         AVG(total_node_runtime) as baseline_avg,
         STDDEV(total_node_runtime) as baseline_stddev
-    FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
+    FROM DEV_DBT.MODEL_EXECUTIONS
     WHERE run_started_at BETWEEN DATEADD(day, -14, CURRENT_DATE()) 
                            AND DATEADD(day, -7, CURRENT_DATE())
       AND status = 'success'
@@ -189,7 +189,7 @@ recent_runs AS (
         AVG(total_node_runtime) as recent_avg,
         MAX(total_node_runtime) as recent_max,
         COUNT(*) as recent_run_count
-    FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
+    FROM DEV_DBT.MODEL_EXECUTIONS
     WHERE run_started_at >= DATEADD(hour, -4, CURRENT_TIMESTAMP())
       AND status = 'success'
     GROUP BY node_id
@@ -228,14 +228,14 @@ SELECT
     total_node_runtime as execution_time,
     failures as message,
     (SELECT COUNT(*) 
-     FROM DBT_ARTIFACTS.MODEL_EXECUTIONS m2 
+     FROM DEV_DBT.MODEL_EXECUTIONS m2 
      WHERE m2.node_id = m1.node_id 
        AND m2.status = 'error'
        AND m2.run_started_at >= DATEADD(day, -7, CURRENT_DATE())
     ) as failure_count_last_7_days,
     CASE 
         WHEN (SELECT COUNT(*) 
-              FROM DBT_ARTIFACTS.MODEL_EXECUTIONS m2 
+              FROM DEV_DBT.MODEL_EXECUTIONS m2 
               WHERE m2.node_id = m1.node_id 
                 AND m2.status = 'error'
                 AND m2.run_started_at >= DATEADD(day, -7, CURRENT_DATE())
@@ -243,7 +243,7 @@ SELECT
         ELSE 'HIGH'
     END as severity,
     'Model execution failed' as alert_description
-FROM DBT_ARTIFACTS.MODEL_EXECUTIONS m1
+FROM DEV_DBT.MODEL_EXECUTIONS m1
 WHERE status = 'error'
   AND run_started_at >= DATEADD(hour, -4, CURRENT_TIMESTAMP())
 ORDER BY failure_count_last_7_days DESC, run_started_at DESC;
@@ -266,7 +266,7 @@ SELECT
         ELSE 'LOW'
     END as severity,
     'Data is stale' as alert_description
-FROM DBT_ARTIFACTS.SOURCE_FRESHNESS_EXECUTIONS
+FROM DEV_DBT.SOURCE_FRESHNESS_EXECUTIONS
 WHERE run_started_at >= DATEADD(day, -1, CURRENT_DATE())
   AND (status = 'error' OR DATEDIFF('hour', max_loaded_at, CURRENT_TIMESTAMP()) > 24)
 QUALIFY ROW_NUMBER() OVER (PARTITION BY node_id ORDER BY run_started_at DESC) = 1
