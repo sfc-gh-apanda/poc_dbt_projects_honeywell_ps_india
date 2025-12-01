@@ -143,7 +143,6 @@ SELECT
     node_id,
     SPLIT_PART(node_id, '.', -1) as test_name,
     status,
-    failures as message,
     total_node_runtime as execution_time,
     CASE 
         WHEN LOWER(node_id) LIKE '%unique%' THEN 'CRITICAL'
@@ -226,7 +225,6 @@ SELECT
     SPLIT_PART(node_id, '.', -1) as model_name,
     status,
     total_node_runtime as execution_time,
-    failures as message,
     (SELECT COUNT(*) 
      FROM DEV_DBT.MODEL_EXECUTIONS m2 
      WHERE m2.node_id = m1.node_id 
