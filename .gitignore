@@ -1,0 +1,32 @@
+# dbt artifacts
+target/
+dbt_packages/
+logs/
+dbt_modules/
+
+# User-specific files
+.user.yml
+profiles.yml
+
+# OS files
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.coverage
+
+# Temporary files
+*.tmp
+*.bak
+*.log
+.cache/
+
