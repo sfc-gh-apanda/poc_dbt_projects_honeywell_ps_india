@@ -44,15 +44,15 @@ SELECT 'STEP 1 COMPLETE: Schema created' as status;
 -- View 2.1: Daily DBT Execution Summary
 CREATE OR REPLACE VIEW DAILY_EXECUTION_SUMMARY AS
 SELECT 
-    DATE_TRUNC('day', generated_at) as execution_date,
+    DATE_TRUNC('day', run_started_at) as execution_date,
     COUNT(DISTINCT node_id) as models_run,
     COUNT(DISTINCT CASE WHEN status = 'success' THEN node_id END) as successful_models,
     COUNT(DISTINCT CASE WHEN status = 'error' THEN node_id END) as failed_models,
-    SUM(execution_time) as total_execution_seconds,
-    AVG(execution_time) as avg_execution_seconds,
-    MAX(execution_time) as max_execution_seconds
+    SUM(total_node_runtime) as total_execution_seconds,
+    AVG(total_node_runtime) as avg_execution_seconds,
+    MAX(total_node_runtime) as max_execution_seconds
 FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
-WHERE generated_at >= DATEADD(day, -30, CURRENT_DATE())
+WHERE run_started_at >= DATEADD(day, -30, CURRENT_DATE())
 GROUP BY 1
 ORDER BY 1 DESC;
 
@@ -62,14 +62,14 @@ SELECT
     node_id,
     SPLIT_PART(node_id, '.', -1) as model_name,
     COUNT(*) as run_count,
-    AVG(execution_time) as avg_execution_seconds,
-    MAX(execution_time) as max_execution_seconds,
-    MIN(execution_time) as min_execution_seconds,
-    STDDEV(execution_time) as stddev_execution_seconds,
+    AVG(total_node_runtime) as avg_execution_seconds,
+    MAX(total_node_runtime) as max_execution_seconds,
+    MIN(total_node_runtime) as min_execution_seconds,
+    STDDEV(total_node_runtime) as stddev_execution_seconds,
     SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successful_runs,
     SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as failed_runs
 FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
-WHERE generated_at >= DATEADD(day, -7, CURRENT_DATE())
+WHERE run_started_at >= DATEADD(day, -7, CURRENT_DATE())
 GROUP BY 1, 2
 HAVING run_count > 0
 ORDER BY avg_execution_seconds DESC;
@@ -77,12 +77,12 @@ ORDER BY avg_execution_seconds DESC;
 -- View 2.3: Test Results Health
 CREATE OR REPLACE VIEW TEST_RESULTS_HEALTH AS
 SELECT 
-    DATE_TRUNC('day', generated_at) as test_date,
+    DATE_TRUNC('day', run_started_at) as test_date,
     status,
     COUNT(*) as test_count,
-    COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (PARTITION BY DATE_TRUNC('day', generated_at)) as percentage
+    COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (PARTITION BY DATE_TRUNC('day', run_started_at)) as percentage
 FROM DBT_ARTIFACTS.TEST_EXECUTIONS
-WHERE generated_at >= DATEADD(day, -30, CURRENT_DATE())
+WHERE run_started_at >= DATEADD(day, -30, CURRENT_DATE())
 GROUP BY 1, 2
 ORDER BY 1 DESC, 2;
 
@@ -99,11 +99,11 @@ SELECT
     ) as moving_avg_7day
 FROM (
     SELECT 
-        DATE_TRUNC('day', generated_at) as execution_date,
+        DATE_TRUNC('day', run_started_at) as execution_date,
         SPLIT_PART(node_id, '.', -1) as model_name,
-        AVG(execution_time) as avg_execution_seconds
+        AVG(total_node_runtime) as avg_execution_seconds
     FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
-    WHERE generated_at >= DATEADD(day, -30, CURRENT_DATE())
+    WHERE run_started_at >= DATEADD(day, -30, CURRENT_DATE())
     GROUP BY 1, 2
 )
 ORDER BY execution_date DESC, model_name;
@@ -114,17 +114,17 @@ SELECT
     SPLIT_PART(node_id, '.', -1) as model_name,
     node_id,
     COUNT(*) as run_count,
-    AVG(execution_time) as avg_seconds,
-    MAX(execution_time) as max_seconds,
-    SUM(execution_time) as total_seconds,
+    AVG(total_node_runtime) as avg_seconds,
+    MAX(total_node_runtime) as max_seconds,
+    SUM(total_node_runtime) as total_seconds,
     CASE 
-        WHEN AVG(execution_time) > 300 THEN 'CRITICAL'
-        WHEN AVG(execution_time) > 60 THEN 'SLOW'
-        WHEN AVG(execution_time) > 10 THEN 'MODERATE'
+        WHEN AVG(total_node_runtime) > 300 THEN 'CRITICAL'
+        WHEN AVG(total_node_runtime) > 60 THEN 'SLOW'
+        WHEN AVG(total_node_runtime) > 10 THEN 'MODERATE'
         ELSE 'FAST'
     END as performance_tier
 FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
-WHERE generated_at >= DATEADD(day, -7, CURRENT_DATE())
+WHERE run_started_at >= DATEADD(day, -7, CURRENT_DATE())
   AND status = 'success'
 GROUP BY 1, 2
 ORDER BY avg_seconds DESC
@@ -139,12 +139,12 @@ SELECT 'STEP 2 COMPLETE: Base monitoring views created (5 views)' as status;
 -- Alert 3.1: Critical Test Failures
 CREATE OR REPLACE VIEW ALERT_CRITICAL_TEST_FAILURES AS
 SELECT 
-    generated_at,
+    run_started_at as generated_at,
     node_id,
     SPLIT_PART(node_id, '.', -1) as test_name,
     status,
-    message,
-    execution_time,
+    failures as message,
+    total_node_runtime as execution_time,
     CASE 
         WHEN LOWER(node_id) LIKE '%unique%' THEN 'CRITICAL'
         WHEN LOWER(node_id) LIKE '%not_null%' THEN 'CRITICAL'
@@ -160,24 +160,24 @@ SELECT
     END as alert_description
 FROM DBT_ARTIFACTS.TEST_EXECUTIONS
 WHERE status IN ('fail', 'error')
-  AND generated_at >= DATEADD(hour, -1, CURRENT_TIMESTAMP())
+  AND run_started_at >= DATEADD(hour, -1, CURRENT_TIMESTAMP())
 ORDER BY 
     CASE 
         WHEN LOWER(node_id) LIKE '%unique%' THEN 1
         WHEN LOWER(node_id) LIKE '%not_null%' THEN 2
         ELSE 3
     END,
-    generated_at DESC;
+    run_started_at DESC;
 
 -- Alert 3.2: Critical Performance Issues
 CREATE OR REPLACE VIEW ALERT_CRITICAL_PERFORMANCE AS
 WITH model_baseline AS (
     SELECT 
         node_id,
-        AVG(execution_time) as baseline_avg,
-        STDDEV(execution_time) as baseline_stddev
+        AVG(total_node_runtime) as baseline_avg,
+        STDDEV(total_node_runtime) as baseline_stddev
     FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
-    WHERE generated_at BETWEEN DATEADD(day, -14, CURRENT_DATE()) 
+    WHERE run_started_at BETWEEN DATEADD(day, -14, CURRENT_DATE()) 
                            AND DATEADD(day, -7, CURRENT_DATE())
       AND status = 'success'
     GROUP BY node_id
@@ -186,11 +186,11 @@ WITH model_baseline AS (
 recent_runs AS (
     SELECT 
         node_id,
-        AVG(execution_time) as recent_avg,
-        MAX(execution_time) as recent_max,
+        AVG(total_node_runtime) as recent_avg,
+        MAX(total_node_runtime) as recent_max,
         COUNT(*) as recent_run_count
     FROM DBT_ARTIFACTS.MODEL_EXECUTIONS
-    WHERE generated_at >= DATEADD(hour, -4, CURRENT_TIMESTAMP())
+    WHERE run_started_at >= DATEADD(hour, -4, CURRENT_TIMESTAMP())
       AND status = 'success'
     GROUP BY node_id
 )
@@ -221,32 +221,32 @@ ORDER BY percent_slower DESC;
 -- Alert 3.3: Model Failures
 CREATE OR REPLACE VIEW ALERT_MODEL_FAILURES AS
 SELECT 
-    generated_at,
+    run_started_at as generated_at,
     node_id,
     SPLIT_PART(node_id, '.', -1) as model_name,
     status,
-    execution_time,
-    message,
+    total_node_runtime as execution_time,
+    failures as message,
     (SELECT COUNT(*) 
      FROM DBT_ARTIFACTS.MODEL_EXECUTIONS m2 
      WHERE m2.node_id = m1.node_id 
        AND m2.status = 'error'
-       AND m2.generated_at >= DATEADD(day, -7, CURRENT_DATE())
+       AND m2.run_started_at >= DATEADD(day, -7, CURRENT_DATE())
     ) as failure_count_last_7_days,
     CASE 
         WHEN (SELECT COUNT(*) 
               FROM DBT_ARTIFACTS.MODEL_EXECUTIONS m2 
               WHERE m2.node_id = m1.node_id 
                 AND m2.status = 'error'
-                AND m2.generated_at >= DATEADD(day, -7, CURRENT_DATE())
+                AND m2.run_started_at >= DATEADD(day, -7, CURRENT_DATE())
              ) >= 3 THEN 'CRITICAL'
         ELSE 'HIGH'
     END as severity,
     'Model execution failed' as alert_description
 FROM DBT_ARTIFACTS.MODEL_EXECUTIONS m1
 WHERE status = 'error'
-  AND generated_at >= DATEADD(hour, -4, CURRENT_TIMESTAMP())
-ORDER BY failure_count_last_7_days DESC, generated_at DESC;
+  AND run_started_at >= DATEADD(hour, -4, CURRENT_TIMESTAMP())
+ORDER BY failure_count_last_7_days DESC, run_started_at DESC;
 
 -- Alert 3.4: Stale Data Sources
 CREATE OR REPLACE VIEW ALERT_STALE_SOURCES AS
@@ -267,9 +267,9 @@ SELECT
     END as severity,
     'Data is stale' as alert_description
 FROM DBT_ARTIFACTS.SOURCE_FRESHNESS_EXECUTIONS
-WHERE generated_at >= DATEADD(day, -1, CURRENT_DATE())
+WHERE run_started_at >= DATEADD(day, -1, CURRENT_DATE())
   AND (status = 'error' OR DATEDIFF('hour', max_loaded_at, CURRENT_TIMESTAMP()) > 24)
-QUALIFY ROW_NUMBER() OVER (PARTITION BY node_id ORDER BY generated_at DESC) = 1
+QUALIFY ROW_NUMBER() OVER (PARTITION BY node_id ORDER BY run_started_at DESC) = 1
 ORDER BY hours_stale DESC;
 
 -- Alert 3.5: All Critical Alerts (Composite)
