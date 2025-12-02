@@ -1,102 +1,195 @@
-# dbt_o2c_semantic - O2C Semantic Views
+# dbt_o2c_semantic - O2C Semantic Views for Cortex Analyst
 
-**Project Type:** Snowflake Semantic Views (DYNAMIC TABLEs)  
-**Purpose:** Business-friendly views with auto-refresh  
-**Package:** [Snowflake-Labs/dbt_semantic_view](https://hub.getdbt.com/Snowflake-Labs/dbt_semantic_view/latest/)  
-**Data Flow:** Creates actual Snowflake DYNAMIC TABLE views
+**Project Type:** Snowflake Semantic Views (YAML definitions)  
+**Purpose:** Enable Cortex Analyst to answer natural language questions  
+**Package:** [Snowflake-Labs/dbt_semantic_view v1.0.3](https://hub.getdbt.com/Snowflake-Labs/dbt_semantic_view/latest/)  
+**Data Flow:** Creates semantic view definitions (metadata), no tables created
 
 ---
 
 ## 📊 Overview
 
-This project uses **Snowflake's dbt_semantic_view package** to create business-friendly semantic views as **DYNAMIC TABLEs**. Unlike traditional semantic layers, these views create actual database objects that auto-refresh.
+This project uses **Snowflake's dbt_semantic_view package** to create **semantic view definitions** that enable **Cortex Analyst** to understand your O2C data and answer natural language business questions.
+
+**What are Semantic Views?**
+- YAML definitions that describe business meaning of your data
+- Enable AI (Cortex Analyst) to generate SQL from natural language
+- No database objects created - just metadata
 
 ---
 
 ## 🎯 What's Included
 
-**3 Semantic Views (DYNAMIC TABLEs):**
+**2 Semantic View Definitions:**
 
-1. **`sv_o2c_summary`** - Aggregated O2C metrics by customer and period
-2. **`sv_o2c_customer_metrics`** - Customer-centric analytics view
-3. **`sv_o2c_ar_aging`** - AR aging analysis with standard buckets
+1. **`o2c_reconciliation_semantic`** - Complete O2C reconciliation data
+   - Source: `dm_o2c_reconciliation`
+   - 10 dimensions (customer, status, dates, etc.)
+   - 11 measures (orders, revenue, DSO, AR, etc.)
+   - Synonyms for natural language queries
 
-All views auto-refresh every **1 hour** via Snowflake DYNAMIC TABLE.
+2. **`o2c_customer_metrics_semantic`** - Customer-level aggregates
+   - Source: `agg_o2c_by_customer`
+   - 4 dimensions (customer attributes)
+   - 6 measures (customer lifetime metrics)
 
 ---
 
 ## 🚀 Deploy
 
 ```bash
-# Install the Snowflake package
+# Step 1: Install Snowflake semantic view package
 dbt deps
 
-# Build semantic views (creates DYNAMIC TABLEs in Snowflake)
-dbt build
+# Step 2: Build semantic views (creates YAML definitions in Snowflake)
+dbt run-operation create_semantic_views
+```
 
-# Expected output:
-# ✓ 3 dynamic tables created in O2C_SEMANTIC_VIEWS schema
+This creates Snowflake `SEMANTIC VIEW` objects that Cortex Analyst can query.
+
+---
+
+## 🤖 Query with Cortex Analyst
+
+Once deployed, you can ask Cortex Analyst natural language questions:
+
+### **Example Questions:**
+
+**Revenue & Orders:**
+- "What is the total order value by customer type?"
+- "Show me top 10 customers by revenue"
+- "What's the billing rate for external customers?"
+
+**Collections & AR:**
+- "How much AR is outstanding for each country?"
+- "Which customers have the highest overdue amount?"
+- "What's the collection rate by customer type?"
+
+**Performance:**
+- "What is the average DSO by customer?"
+- "Show me customers with DSO over 60 days"
+- "What's the average time from order to invoice?"
+
+**Cortex Analyst** will automatically:
+1. Understand the question using semantic view definitions
+2. Generate appropriate SQL
+3. Query the underlying `dm_o2c_reconciliation` table
+4. Return results
+
+---
+
+## 📋 Semantic View Features
+
+### **Dimensions** (for filtering & grouping):
+- `customer_name` (synonyms: customer, company, account)
+- `customer_type` (External vs Internal)
+- `customer_country` (synonyms: country, location)
+- `reconciliation_status` (NOT_INVOICED, NOT_PAID, OPEN, CLOSED)
+- `payment_timing` (ON_TIME, LATE, OVERDUE, CURRENT)
+- Time dimensions: `order_date`, `invoice_date`, `payment_date`
+
+### **Measures** (for aggregation):
+- `total_orders` (synonyms: order count, number of orders)
+- `total_order_value` (synonyms: revenue, sales)
+- `total_ar_outstanding` (synonyms: receivables, unpaid invoices)
+- `avg_days_sales_outstanding` (synonyms: DSO, collection period)
+- `avg_days_to_invoice` (synonyms: billing time)
+- `avg_days_to_payment` (synonyms: collection time)
+- And more...
+
+---
+
+## 🔍 Verify Deployment
+
+```sql
+-- Check if semantic views were created
+SHOW SEMANTIC VIEWS IN SCHEMA EDW.O2C_SEMANTIC_VIEWS;
+
+-- View semantic view definition
+DESCRIBE SEMANTIC VIEW EDW.O2C_SEMANTIC_VIEWS.O2C_RECONCILIATION_SEMANTIC;
+
+-- Test query (manual SQL)
+SELECT customer_name, total_order_value, avg_days_sales_outstanding
+FROM EDW.O2C_SEMANTIC_VIEWS.O2C_RECONCILIATION_SEMANTIC
+WHERE customer_type = 'E';
 ```
 
 ---
 
-## 📊 Query Semantic Views
+## 💡 How It Works
 
+```
+1. You define semantic views in YAML
+   └─> Dimensions, measures, synonyms
+
+2. dbt_semantic_view package creates Snowflake SEMANTIC VIEW objects
+   └─> Stored as metadata in Snowflake
+
+3. Cortex Analyst reads semantic view definitions
+   └─> Understands business meaning
+
+4. User asks natural language question
+   └─> "What's the DSO for external customers?"
+
+5. Cortex Analyst generates SQL
+   └─> SELECT customer_type, AVG(days_order_to_cash)...
+
+6. SQL executes against underlying table
+   └─> dm_o2c_reconciliation
+
+7. Results returned to user
+   └─> Interactive data exploration
+```
+
+---
+
+## 📝 Key Differences
+
+| Aspect | Semantic Views (This) | dbt Semantic Layer (MetricFlow) | DYNAMIC TABLEs |
+|--------|----------------------|--------------------------------|----------------|
+| **Purpose** | Cortex Analyst interface | dbt Cloud metrics API | Auto-refreshing tables |
+| **Creates Objects** | Yes (SEMANTIC VIEW) | No (metadata only) | Yes (DYNAMIC TABLE) |
+| **Query Method** | Natural language → SQL | Metrics API | Standard SQL |
+| **AI Integration** | ✅ Yes (Cortex Analyst) | ❌ No | ❌ No |
+| **Package** | Snowflake-Labs/dbt_semantic_view | dbt-labs/dbt_semantic_interfaces | Native Snowflake |
+
+---
+
+## 🎓 Example Cortex Analyst Conversation
+
+**User:** "Show me customers with outstanding AR over $10,000"
+
+**Cortex Analyst:** 
 ```sql
--- Query the summary view
-SELECT *
-FROM EDW.O2C_SEMANTIC_VIEWS.SV_O2C_SUMMARY
-WHERE customer_type = 'E'
-  AND order_month >= '2024-01-01';
-
--- Query customer metrics
 SELECT 
     customer_name,
-    lifetime_order_value,
-    current_ar_outstanding,
-    avg_dso,
-    on_time_payment_rate
-FROM EDW.O2C_SEMANTIC_VIEWS.SV_O2C_CUSTOMER_METRICS
-ORDER BY current_ar_outstanding DESC;
-
--- Query AR aging
-SELECT 
-    customer_name,
-    current_amount,
-    past_due_1_30_days,
-    past_due_31_60_days,
-    past_due_over_90_days,
-    total_ar_outstanding
-FROM EDW.O2C_SEMANTIC_VIEWS.SV_O2C_AR_AGING
-WHERE total_ar_outstanding > 0
+    total_ar_outstanding,
+    customer_country,
+    avg_days_sales_outstanding
+FROM o2c_reconciliation_semantic
+WHERE total_ar_outstanding > 10000
 ORDER BY total_ar_outstanding DESC;
 ```
 
----
+**User:** "What's the average DSO for German customers?"
 
-## 🔄 Auto-Refresh
-
-All semantic views are **DYNAMIC TABLEs** with:
-- **Target Lag:** 1 hour
-- **Auto-refresh:** Managed by Snowflake
-- **Incremental:** Only processes changed data
-
-Check refresh history:
+**Cortex Analyst:**
 ```sql
-SHOW DYNAMIC TABLES LIKE 'SV_O2C%' IN SCHEMA EDW.O2C_SEMANTIC_VIEWS;
+SELECT 
+    customer_country,
+    AVG(avg_days_sales_outstanding) as avg_dso
+FROM o2c_reconciliation_semantic
+WHERE customer_country = 'Germany'
+GROUP BY customer_country;
 ```
 
 ---
 
-## 📝 Key Difference from Metadata-Only Semantic Layer
+## 🔗 References
 
-| Aspect | This Approach (Snowflake) | dbt Semantic Layer (MetricFlow) |
-|--------|---------------------------|----------------------------------|
-| **Creates Objects** | ✅ Yes (DYNAMIC TABLEs) | ❌ No (metadata only) |
-| **Auto-Refresh** | ✅ Yes (Snowflake managed) | ❌ No |
-| **Query Method** | Standard SQL | Metrics API |
-| **Performance** | ✅ Pre-computed | On-demand |
-| **Storage** | Uses warehouse storage | No storage |
+- [Snowflake Semantic Views Documentation](https://docs.snowflake.com/en/user-guide/semantic-views)
+- [Cortex Analyst Documentation](https://docs.snowflake.com/en/user-guide/ml-powered-analysis)
+- [dbt_semantic_view Package](https://hub.getdbt.com/Snowflake-Labs/dbt_semantic_view/latest/)
 
 ---
 

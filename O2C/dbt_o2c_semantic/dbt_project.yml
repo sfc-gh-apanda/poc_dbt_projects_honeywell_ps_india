@@ -8,16 +8,13 @@ model-paths: ["models"]
 target-path: "target"
 
 vars:
-  # Enable semantic view generation
-  enable_semantic_views: true
+  # Snowflake semantic view configuration
+  semantic_view_schema: 'o2c_semantic_views'
 
 models:
   dbt_o2c_semantic:
-    # Semantic views will be materialized as Snowflake DYNAMIC TABLEs
     semantic_views:
-      +materialized: dynamic_table
+      +materialized: view  # Semantic views are special Snowflake objects
       +schema: o2c_semantic_views
-      +target_lag: '1 hour'
-      +tags: ['o2c', 'semantic', 'dynamic_table']
-      +access: public
+      +tags: ['semantic_view', 'cortex_analyst']
 

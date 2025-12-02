@@ -1,0 +1,79 @@
+version: 2
+
+semantic_views:
+  - name: o2c_customer_metrics_semantic
+    description: |
+      Semantic view for customer-level O2C metrics.
+      Pre-aggregated by customer for performance.
+    
+    model: ref('agg_o2c_by_customer')
+    
+    # Dimensions
+    dimensions:
+      - name: customer_id
+        type: string
+        description: "Unique customer identifier"
+        
+      - name: customer_name
+        type: string
+        description: "Customer company name"
+        synonyms:
+          - "customer"
+          - "company"
+          - "account"
+        
+      - name: customer_type
+        type: string
+        description: "Customer type: E=External, I=Internal"
+        
+      - name: customer_country
+        type: string
+        description: "Customer country"
+        synonyms:
+          - "country"
+          - "location"
+    
+    # Measures - aggregated metrics per customer
+    measures:
+      - name: orders_per_customer
+        type: sum
+        expr: total_orders
+        description: "Total orders for this customer"
+        synonyms:
+          - "customer orders"
+          - "order count"
+        
+      - name: invoices_per_customer
+        type: sum
+        expr: total_invoices
+        description: "Total invoices for this customer"
+        
+      - name: payments_per_customer
+        type: sum
+        expr: total_payments
+        description: "Total payments from this customer"
+        
+      - name: customer_order_value
+        type: sum
+        expr: total_order_amount
+        description: "Total order value for this customer"
+        synonyms:
+          - "customer revenue"
+          - "customer sales"
+        
+      - name: customer_ar_outstanding
+        type: sum
+        expr: total_outstanding
+        description: "Outstanding AR for this customer"
+        synonyms:
+          - "customer receivables"
+          - "unpaid amount"
+        
+      - name: customer_avg_dso
+        type: average
+        expr: avg_days_to_cash
+        description: "Average DSO for this customer"
+        synonyms:
+          - "customer DSO"
+          - "customer collection time"
+
