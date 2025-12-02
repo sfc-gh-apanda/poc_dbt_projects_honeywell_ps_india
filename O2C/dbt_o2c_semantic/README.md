@@ -20,37 +20,46 @@ This project uses **Snowflake's dbt_semantic_view package** to create **semantic
 
 ## 🎯 What's Included
 
-**2 Semantic View Definitions:**
+**2 Semantic View Models (SQL):**
 
-1. **`o2c_reconciliation_semantic`** - Complete O2C reconciliation data
+1. **`sv_o2c_reconciliation.sql`** - Complete O2C reconciliation data
    - Source: `dm_o2c_reconciliation`
-   - 10 dimensions (customer, status, dates, etc.)
-   - 11 measures (orders, revenue, DSO, AR, etc.)
-   - Synonyms for natural language queries
+   - 10 dimensions (customer, status, dates, countries)
+   - 10 facts (order_amount, outstanding_amount, DSO, cycle times)
+   - 9 metrics (total_revenue, avg_dso, total_ar_outstanding)
+   - Extensive synonyms for natural language understanding
 
-2. **`o2c_customer_metrics_semantic`** - Customer-level aggregates
+2. **`sv_o2c_customer_summary.sql`** - Customer-level aggregates
    - Source: `agg_o2c_by_customer`
    - 4 dimensions (customer attributes)
-   - 6 measures (customer lifetime metrics)
+   - 9 facts (customer lifetime metrics)
+   - 4 metrics (customer_lifetime_revenue, customer_current_ar)
 
 ---
 
 ## 🚀 Deploy
 
-### **Method 1: Using SQL Script (Recommended)**
+### **Using dbt build (Recommended)**
 
 ```bash
-# Run the deployment script in Snowflake
-snowsql -f ../O2C_DEPLOY_SEMANTIC_VIEWS.sql
+# Step 1: Install the Snowflake semantic view package
+dbt deps
+
+# Step 2: Build semantic views (creates SEMANTIC VIEW objects in Snowflake)
+dbt build
+
+# Expected output:
+# ✓ 2 semantic views created in O2C_SEMANTIC_VIEWS schema
 ```
 
-This creates Snowflake `SEMANTIC VIEW` objects that Cortex Analyst can query.
+The `dbt_semantic_view` package intercepts the `materialized='semantic_view'` config and automatically generates the proper Snowflake `CREATE SEMANTIC VIEW` DDL.
 
-### **Method 2: Manual Deployment**
+### **Alternative: Manual Deployment (Backup)**
 
-Copy the SQL from `O2C_DEPLOY_SEMANTIC_VIEWS.sql` and run in Snowsight worksheet.
-
-**Note:** The `dbt_semantic_view` package provides YAML schema for semantic views. The actual deployment uses Snowflake SQL `CREATE SEMANTIC VIEW` statements.
+If dbt build fails, you can use the SQL script:
+```bash
+snowsql -f ../O2C_DEPLOY_SEMANTIC_VIEWS.sql
+```
 
 ---
 

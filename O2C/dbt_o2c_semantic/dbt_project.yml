@@ -6,6 +6,9 @@ profile: 'snowflake_o2c'
 
 model-paths: ["models"]
 target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
 
 vars:
   # Snowflake semantic view configuration
@@ -14,7 +17,8 @@ vars:
 models:
   dbt_o2c_semantic:
     semantic_views:
-      +materialized: view  # Semantic views are special Snowflake objects
+      +materialized: semantic_view  # Uses dbt_semantic_view package
       +schema: o2c_semantic_views
       +tags: ['semantic_view', 'cortex_analyst']
+      +access: public
 
