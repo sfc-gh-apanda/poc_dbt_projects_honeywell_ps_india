@@ -37,15 +37,20 @@ This project uses **Snowflake's dbt_semantic_view package** to create **semantic
 
 ## 🚀 Deploy
 
-```bash
-# Step 1: Install Snowflake semantic view package
-dbt deps
+### **Method 1: Using SQL Script (Recommended)**
 
-# Step 2: Build semantic views (creates YAML definitions in Snowflake)
-dbt run-operation create_semantic_views
+```bash
+# Run the deployment script in Snowflake
+snowsql -f ../O2C_DEPLOY_SEMANTIC_VIEWS.sql
 ```
 
 This creates Snowflake `SEMANTIC VIEW` objects that Cortex Analyst can query.
+
+### **Method 2: Manual Deployment**
+
+Copy the SQL from `O2C_DEPLOY_SEMANTIC_VIEWS.sql` and run in Snowsight worksheet.
+
+**Note:** The `dbt_semantic_view` package provides YAML schema for semantic views. The actual deployment uses Snowflake SQL `CREATE SEMANTIC VIEW` statements.
 
 ---
 
