@@ -1,0 +1,95 @@
+name: 'dbt_o2c'
+version: '1.0.0'
+config-version: 2
+
+profile: 'snowflake_o2c'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+packages-install-path: "dbt_packages"
+
+vars:
+  # O2C specific variables
+  o2c_source_systems:
+    - 'BRP900'
+    - 'CIP900'
+    - 'EEP300'
+  
+  # Date range for historical data
+  o2c_history_years: 2
+  
+  # Feature flags
+  enable_snapshots: true
+  enable_incremental: false
+
+models:
+  dbt_o2c:
+    
+    # ═══════════════════════════════════════════════════
+    # STAGING LAYER (Private - not published externally)
+    # ═══════════════════════════════════════════════════
+    staging:
+      +materialized: view
+      +schema: o2c_staging
+      +tags: ['o2c', 'staging']
+      +access: private              # Not accessible externally
+      
+      o2c:
+        +tags: ['o2c', 'staging', 'enriched']
+        +docs:
+          node_color: "#4CAF50"     # Green for staging
+    
+    # ═══════════════════════════════════════════════════
+    # MARTS LAYER
+    # ═══════════════════════════════════════════════════
+    marts:
+      
+      # Shared Dimensions (Published for semantic layer)
+      dimensions:
+        +materialized: table
+        +schema: o2c_dimensions
+        +tags: ['o2c', 'dimension']
+        +access: public             # Published for semantic layer
+        +contract:
+          enforced: true            # Schema contract enforced
+        +docs:
+          node_color: "#2196F3"     # Blue for dimensions
+      
+      # Core Facts & Reconciliation (Published for semantic layer)
+      core:
+        +materialized: table
+        +schema: o2c_core
+        +tags: ['o2c', 'mart', 'core']
+        +access: public             # Published for semantic layer
+        +docs:
+          node_color: "#9C27B0"     # Purple for core marts
+      
+      # Pre-Aggregated Tables (Published for semantic layer)
+      aggregates:
+        +materialized: table
+        +schema: o2c_aggregates
+        +tags: ['o2c', 'mart', 'aggregate']
+        +access: public             # Published for semantic layer
+        +docs:
+          node_color: "#E91E63"     # Pink for aggregates
+
+# Snapshots configuration
+snapshots:
+  dbt_o2c:
+    +target_schema: o2c_snapshots
+    +strategy: timestamp
+    +updated_at: loaded_at
+
+on-run-end:
+  - "{{ log('✅ O2C Data Platform build complete!', info=True) }}"
+
