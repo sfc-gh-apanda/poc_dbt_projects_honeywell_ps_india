@@ -81,6 +81,14 @@ models:
         description: "Flag indicating if customer is internal Honeywell entity"
         data_type: boolean
       
+      - name: source_load_ts
+        description: "Timestamp when record was loaded in source system"
+        data_type: timestamp_ntz
+      
+      - name: source_update_ts
+        description: "Timestamp when record was last updated in source system"
+        data_type: timestamp_ntz
+      
       - name: _loaded_at
         description: "Timestamp when dimension was loaded"
         data_type: timestamp_ntz
