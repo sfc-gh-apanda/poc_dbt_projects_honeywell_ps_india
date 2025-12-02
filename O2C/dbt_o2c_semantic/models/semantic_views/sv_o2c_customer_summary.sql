@@ -17,7 +17,7 @@
 */
 
 TABLES(
-    {{ ref('agg_o2c_by_customer') }}
+    {{ ref('dbt_o2c', 'agg_o2c_by_customer') }}
 )
 DIMENSIONS(
     customer_name COMMENT = 'Customer company name' SYNONYMS ('customer', 'company', 'account'),

@@ -17,7 +17,7 @@
 */
 
 TABLES(
-    {{ ref('dm_o2c_reconciliation') }}
+    {{ ref('dbt_o2c', 'dm_o2c_reconciliation') }}
 )
 DIMENSIONS(
     customer_name COMMENT = 'Customer company name' SYNONYMS ('customer', 'company', 'account', 'client'),
