@@ -1,8 +1,12 @@
-name: 'dbt_o2c_semantic'
-version: '1.0.0'
+# ⚠️ THIS PROJECT IS DEPRECATED - DO NOT USE
+# All semantic views have been moved to dbt_o2c/models/semantic_views/
+# Build from dbt_o2c instead!
+
+name: 'dbt_o2c_semantic_DEPRECATED'
+version: '0.0.0-deprecated'
 config-version: 2
 
-profile: 'snowflake_o2c'
+profile: 'snowflake_o2c_INVALID'
 
 model-paths: ["models"]
 target-path: "target"
