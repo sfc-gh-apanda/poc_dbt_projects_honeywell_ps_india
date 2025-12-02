@@ -36,13 +36,13 @@ models:
   dbt_o2c:
     
     # ═══════════════════════════════════════════════════
-    # STAGING LAYER (Private - not published externally)
+    # STAGING LAYER (Protected - accessible within project)
     # ═══════════════════════════════════════════════════
     staging:
       +materialized: view
       +schema: o2c_staging
       +tags: ['o2c', 'staging']
-      +access: private              # Not accessible externally
+      +access: protected            # Accessible within dbt_o2c project only
       
       o2c:
         +tags: ['o2c', 'staging', 'enriched']
