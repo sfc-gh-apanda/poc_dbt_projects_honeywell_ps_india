@@ -1,0 +1,13 @@
+name: 'dbt_o2c_semantic'
+version: '1.0.0'
+config-version: 2
+
+profile: 'snowflake_o2c'
+
+model-paths: ["models"]
+target-path: "target"
+
+models:
+  dbt_o2c_semantic:
+    +enabled: true
+
