@@ -31,13 +31,9 @@ dbt_o2c
 │   ├── dm_o2c_reconciliation    ← Main mart
 │   └── dm_o2c_cycle_analysis
 │
-├── Aggregates (schema: o2c_aggregates)
-│   ├── agg_o2c_by_customer
-│   └── agg_o2c_by_period
-│
-└── Semantic Views (schema: o2c_semantic_views) ← NEW!
-    ├── sv_o2c_reconciliation     (for Cortex Analyst)
-    └── sv_o2c_customer_summary   (for Cortex Analyst)
+└── Aggregates (schema: o2c_aggregates)
+    ├── agg_o2c_by_customer
+    └── agg_o2c_by_period
 ```
 
 ---
@@ -67,9 +63,11 @@ Staging (3 models with joins)
     ↓
 Marts (5 models)
     ↓
-Semantic Views (2 models for Cortex Analyst)
+Output: 8 warehouse objects (3 views + 5 tables)
+
+Semantic Views (deployed separately via SQL)
     ↓
-Output: 10 warehouse objects (8 tables/views + 2 semantic views)
+Output: 2 semantic views (for Cortex Analyst)
 ```
 
 ---

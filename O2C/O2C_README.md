@@ -24,15 +24,17 @@ This is a **complete, standalone Order-to-Cash (O2C) analytics platform** built 
 
 ## 🏗️ Architecture
 
-### **Consolidated Single-Project Structure** (Snowflake Native)
+### **Single-Project Structure** (Snowflake Native Compatible)
 
 ```
 O2C/
-└── dbt_o2c/                    # ALL-IN-ONE: Data Platform + Semantic Views
-    ├── Staging Layer           # Enriched staging with dimension joins
-    ├── Marts Layer             # Dimensions, facts, aggregates
-    ├── Semantic Views          # Cortex Analyst integration
-    └── Output: Tables/Views + Semantic Views in Snowflake
+├── dbt_o2c/                           # Data transformation with dbt
+│   ├── Staging Layer                  # Enriched staging with dimension joins
+│   ├── Marts Layer                    # Dimensions, facts, aggregates
+│   └── Output: 8 tables/views in Snowflake
+│
+└── O2C_DEPLOY_SEMANTIC_VIEWS.sql      # Semantic views deployment (manual)
+    └── Output: 2 semantic views for Cortex Analyst
 ```
 
 ### **Data Flow**
@@ -50,9 +52,9 @@ MARTS (5 models)
     ├─ Core Marts (2): Reconciliation, Cycle Analysis
     └─ Aggregates (2): By Customer, By Period
     ↓
-SEMANTIC VIEWS (2 views for Cortex Analyst)
-    ├─ O2C Reconciliation Semantic View
-    └─ Customer Summary Semantic View
+SEMANTIC VIEWS (deployed separately via SQL)
+    ├─ O2C_RECONCILIATION_SEMANTIC (Cortex Analyst)
+    └─ O2C_CUSTOMER_METRICS_SEMANTIC (Cortex Analyst)
 ```
 
 ---
@@ -72,11 +74,16 @@ SEMANTIC VIEWS (2 views for Cortex Analyst)
 cd O2C
 snowsql -f O2C_LOAD_SAMPLE_DATA.sql
 
-# 2. Build data platform (includes semantic views)
+# 2. Build data platform
 cd dbt_o2c
 dbt deps
 dbt build
-# ✅ Builds 8 models + 2 semantic views
+# ✅ Builds 8 models (3 views + 5 tables)
+
+# 3. Deploy semantic views for Cortex Analyst
+cd ..
+snowsql -f O2C_DEPLOY_SEMANTIC_VIEWS.sql
+# ✅ Creates 2 semantic views
 ```
 
 **See `O2C_QUICKSTART.md` for detailed step-by-step instructions.**

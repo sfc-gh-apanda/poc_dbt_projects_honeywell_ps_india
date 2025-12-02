@@ -87,7 +87,7 @@ dbt build
 ```
 Running with dbt=1.9.x
 
-Found 10 models, 25 data tests, 3 sources, 0 exposures, 0 metrics, 2 semantic views
+Found 8 models, 20+ data tests, 6 sources, 0 exposures, 0 metrics
 
 Concurrency: 4 threads
 
@@ -100,17 +100,36 @@ Building models:
   ✓ dm_o2c_cycle_analysis ......................... [TABLE in 3.8s]
   ✓ agg_o2c_by_customer ........................... [TABLE in 2.9s]
   ✓ agg_o2c_by_period ............................. [TABLE in 2.7s]
-  ✓ sv_o2c_reconciliation ......................... [SEMANTIC_VIEW in 5.1s]  ← New!
-  ✓ sv_o2c_customer_summary ....................... [SEMANTIC_VIEW in 4.8s]  ← New!
 
 Running tests:
-  ✓ [25 tests passed]
+  ✓ [20+ tests passed]
 
 ✅ O2C Data Platform build complete!
 
 Completed successfully
 
-Done. PASS=10 WARN=0 ERROR=0 SKIP=0 TOTAL=10
+Done. PASS=8 WARN=0 ERROR=0 SKIP=0 TOTAL=8
+```
+
+### **Step 5: Deploy Semantic Views (Optional - for Cortex Analyst)**
+
+```bash
+# Navigate back to O2C folder
+cd ..
+
+# Run the semantic view deployment script
+snowsql -f O2C_DEPLOY_SEMANTIC_VIEWS.sql
+```
+
+**Expected output:**
+```
++-------------------------------------+
+| status                              |
++-------------------------------------+
+| Statement executed successfully.    |
++-------------------------------------+
+Semantic view O2C_RECONCILIATION_SEMANTIC created.
+Semantic view O2C_CUSTOMER_METRICS_SEMANTIC created.
 ```
 
 ---
@@ -131,31 +150,49 @@ GROUP BY schema_name
 ORDER BY schema_name;
 ```
 
-**Expected result:**
+**Expected result (after dbt build):**
 | SCHEMA_NAME | OBJECT_COUNT |
 |-------------|--------------|
 | O2C_AGGREGATES | 2 |
 | O2C_CORE | 2 |
 | O2C_DIMENSIONS | 1 |
-| O2C_SEMANTIC_VIEWS | 2 |
 | O2C_STAGING | 3 |
 
-**Total: 5 schemas, 10 objects**
+**Total: 4 schemas, 8 objects**
 
-### **2. Verify Semantic Views Exist**
+*Note: Semantic views are deployed separately via SQL script*
+
+### **2. Verify Semantic Views Exist** (after running deployment script)
 
 ```sql
 SHOW SEMANTIC VIEWS IN SCHEMA EDW.O2C_SEMANTIC_VIEWS;
 ```
 
-**Expected result:**
-- `SV_O2C_RECONCILIATION`
-- `SV_O2C_CUSTOMER_SUMMARY`
+**Expected result (if semantic views deployed):**
+- `O2C_RECONCILIATION_SEMANTIC`
+- `O2C_CUSTOMER_METRICS_SEMANTIC`
 
-### **3. Describe Semantic View Metadata**
+### **3. Test Query on Core Mart**
 
 ```sql
-DESCRIBE SEMANTIC VIEW EDW.O2C_SEMANTIC_VIEWS.SV_O2C_RECONCILIATION;
+-- Verify the main reconciliation mart
+SELECT 
+    customer_name,
+    customer_country,
+    SUM(order_amount) as total_revenue,
+    AVG(days_order_to_cash) as avg_dso,
+    COUNT(DISTINCT order_key) as order_count
+FROM EDW.O2C_CORE.DM_O2C_RECONCILIATION
+WHERE customer_type = 'E'  -- External customers only
+GROUP BY customer_name, customer_country
+ORDER BY total_revenue DESC
+LIMIT 10;
+```
+
+### **4. Describe Semantic View Metadata** (if deployed)
+
+```sql
+DESCRIBE SEMANTIC VIEW EDW.O2C_SEMANTIC_VIEWS.O2C_RECONCILIATION_SEMANTIC;
 ```
 
 Should show:
@@ -163,25 +200,11 @@ Should show:
 - **FACTS**: order_amount, outstanding_amount, days_order_to_cash, etc.
 - **METRICS**: total_revenue, avg_dso, total_ar_outstanding, etc.
 
-### **4. Test Query on Semantic View**
-
-```sql
-SELECT 
-    customer_name,
-    customer_country,
-    SUM(order_amount) as total_revenue,
-    AVG(days_order_to_cash) as avg_dso,
-    COUNT(DISTINCT order_key) as order_count
-FROM EDW.O2C_SEMANTIC_VIEWS.SV_O2C_RECONCILIATION
-WHERE customer_type = 'E'  -- External customers only
-GROUP BY customer_name, customer_country
-ORDER BY total_revenue DESC
-LIMIT 10;
-```
-
 ---
 
 ## 📊 What Gets Built
+
+### **dbt Models (Built by `dbt build`)**
 
 | Layer | Schema | Models | Materialization |
 |-------|--------|--------|-----------------|
@@ -189,18 +212,25 @@ LIMIT 10;
 | **Dimensions** | O2C_DIMENSIONS | 1 | TABLE |
 | **Core Marts** | O2C_CORE | 2 | TABLE |
 | **Aggregates** | O2C_AGGREGATES | 2 | TABLE |
+| **TOTAL** | **4 schemas** | **8 models** | |
+
+### **Semantic Views (Deployed manually via SQL)**
+
+| Object | Schema | Count | Type |
+|--------|--------|-------|------|
 | **Semantic Views** | O2C_SEMANTIC_VIEWS | 2 | SEMANTIC_VIEW |
-| **TOTAL** | **5 schemas** | **10 models** | |
+
+**Deploy with:** `snowsql -f O2C_DEPLOY_SEMANTIC_VIEWS.sql`
 
 ---
 
-## 🤖 Cortex Analyst Integration
+## 🤖 Cortex Analyst Integration (Optional)
 
-Once semantic views are deployed:
+**After deploying semantic views** via `O2C_DEPLOY_SEMANTIC_VIEWS.sql`:
 
 1. **Open Snowsight**
 2. Click **+ Create** → **Cortex Analyst**
-3. Select `EDW.O2C_SEMANTIC_VIEWS.SV_O2C_RECONCILIATION`
+3. Select `EDW.O2C_SEMANTIC_VIEWS.O2C_RECONCILIATION_SEMANTIC`
 4. Start asking questions in natural language:
 
 **Try these questions:**
@@ -209,6 +239,8 @@ Once semantic views are deployed:
 - "What's the average DSO?"
 - "Which customers have overdue payments?"
 - "How many invoices were paid on time?"
+
+**Note:** Cortex Analyst requires semantic views to be deployed first.
 
 ---
 
@@ -263,12 +295,17 @@ ls -la profiles.yml
 
 ## ✅ Success Checklist
 
+### **Core dbt Build (Required)**
 - [ ] Pulled latest changes from git
 - [ ] Navigated to `O2C/dbt_o2c` (NOT `dbt_o2c_semantic`)
 - [ ] Ran `dbt deps` successfully
 - [ ] Ran `dbt build` successfully
-- [ ] All 10 models built (8 tables/views + 2 semantic views)
-- [ ] All 25 tests passed
+- [ ] All 8 models built (3 views + 5 tables)
+- [ ] All 20+ tests passed
+- [ ] Verified objects exist in O2C schemas
+
+### **Semantic Views Deployment (Optional - for Cortex Analyst)**
+- [ ] Ran `O2C_DEPLOY_SEMANTIC_VIEWS.sql` script
 - [ ] Verified semantic views exist in `O2C_SEMANTIC_VIEWS` schema
 - [ ] Tested querying a semantic view
 - [ ] Connected Cortex Analyst to semantic views
