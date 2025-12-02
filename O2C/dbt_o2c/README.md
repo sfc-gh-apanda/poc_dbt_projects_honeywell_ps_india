@@ -25,19 +25,19 @@ dbt_o2c
 │   └── stg_enriched_payments    (view with bank join)
 │
 ├── Dimensions (schema: o2c_dimensions)
-│   ├── dim_o2c_customer
-│   ├── dim_o2c_payment_terms
-│   └── dim_o2c_bank
+│   └── dim_o2c_customer
 │
 ├── Core Marts (schema: o2c_core)
-│   ├── fct_o2c_transactions
 │   ├── dm_o2c_reconciliation    ← Main mart
 │   └── dm_o2c_cycle_analysis
 │
-└── Aggregates (schema: o2c_aggregates)
-    ├── agg_o2c_by_customer
-    ├── agg_o2c_by_period
-    └── agg_o2c_performance
+├── Aggregates (schema: o2c_aggregates)
+│   ├── agg_o2c_by_customer
+│   └── agg_o2c_by_period
+│
+└── Semantic Views (schema: o2c_semantic_views) ← NEW!
+    ├── sv_o2c_reconciliation     (for Cortex Analyst)
+    └── sv_o2c_customer_summary   (for Cortex Analyst)
 ```
 
 ---
@@ -65,9 +65,11 @@ Sources (6 tables)
     ↓
 Staging (3 models with joins)
     ↓
-Marts (9 models)
+Marts (5 models)
     ↓
-Output: 12 warehouse objects
+Semantic Views (2 models for Cortex Analyst)
+    ↓
+Output: 10 warehouse objects (8 tables/views + 2 semantic views)
 ```
 
 ---

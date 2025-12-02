@@ -24,38 +24,35 @@ This is a **complete, standalone Order-to-Cash (O2C) analytics platform** built 
 
 ## 🏗️ Architecture
 
-### **Two-Project Structure**
+### **Consolidated Single-Project Structure** (Snowflake Native)
 
 ```
 O2C/
-├── dbt_o2c/                    # PROJECT 1: Data Platform (Staging + Marts)
-│   ├── Staging Layer           # Enriched staging with dimension joins
-│   ├── Marts Layer             # Facts, dimensions, aggregates
-│   └── Output: Tables/Views in Snowflake
-│
-└── dbt_o2c_semantic/           # PROJECT 2: Semantic Layer (Metadata Only)
-    ├── Semantic Models         # YAML definitions
-    ├── Metrics                 # Business metrics
-    └── Output: API metadata (no database objects)
+└── dbt_o2c/                    # ALL-IN-ONE: Data Platform + Semantic Views
+    ├── Staging Layer           # Enriched staging with dimension joins
+    ├── Marts Layer             # Dimensions, facts, aggregates
+    ├── Semantic Views          # Cortex Analyst integration
+    └── Output: Tables/Views + Semantic Views in Snowflake
 ```
 
 ### **Data Flow**
 
 ```
-SOURCE TABLES (8 tables)
+SOURCE TABLES (6 tables)
     ↓
 STAGING (3 enriched models with JOINS)
     ├─ Orders + Customer
     ├─ Invoices + Payment Terms
     └─ Payments + Bank Account
     ↓
-MARTS (9 models)
-    ├─ Dimensions (3)
-    ├─ Core Facts/Reconciliation (3)
-    └─ Aggregates (3)
+MARTS (5 models)
+    ├─ Dimension (1): Customer
+    ├─ Core Marts (2): Reconciliation, Cycle Analysis
+    └─ Aggregates (2): By Customer, By Period
     ↓
-SEMANTIC LAYER (Metrics API)
-    └─ 15+ Business Metrics
+SEMANTIC VIEWS (2 views for Cortex Analyst)
+    ├─ O2C Reconciliation Semantic View
+    └─ Customer Summary Semantic View
 ```
 
 ---
@@ -75,14 +72,11 @@ SEMANTIC LAYER (Metrics API)
 cd O2C
 snowsql -f O2C_LOAD_SAMPLE_DATA.sql
 
-# 2. Build data platform
+# 2. Build data platform (includes semantic views)
 cd dbt_o2c
 dbt deps
 dbt build
-
-# 3. Deploy semantic layer
-cd ../dbt_o2c_semantic
-dbt parse
+# ✅ Builds 8 models + 2 semantic views
 ```
 
 **See `O2C_QUICKSTART.md` for detailed step-by-step instructions.**

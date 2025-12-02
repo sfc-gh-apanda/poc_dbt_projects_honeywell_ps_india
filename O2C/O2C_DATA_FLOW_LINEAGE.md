@@ -19,8 +19,8 @@ Complete data lineage from **6 source tables** through **2 transformation layers
 | **Staging Models** | 3 models (each with 1 LEFT JOIN) |
 | **Mart Models** | 5 models (1 dimension + 2 core + 2 aggregates) |
 | **Total Models** | 8 dbt models (3 staging + 5 marts) |
-| **dbt Projects** | 2 projects (dbt_o2c + dbt_o2c_semantic) |
-| **Semantic Metrics** | 13+ business metrics |
+| **dbt Projects** | 1 project (dbt_o2c with semantic views) |
+| **Semantic Views** | 2 Snowflake Semantic Views for Cortex Analyst |
 
 ---
 
@@ -94,13 +94,14 @@ Complete data lineage from **6 source tables** through **2 transformation layers
 │ Cycle metrics   │  │ Customer agg │  │ Time-series agg │
 └─────────────────┘  └──────────────┘  └─────────────────┘
 
-🎯 SEMANTIC LAYER (Metadata Only) - dbt_o2c_semantic
+🎯 SEMANTIC LAYER (2 Snowflake Semantic Views) - dbt_o2c
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ┌───────────────────────────────────────────────────────────┐
-│ Semantic Models (YAML)                                    │
-│ - sm_o2c_reconciliation                                   │
-│ - 15+ Metrics defined                                     │
-│ - No database objects created                             │
+│ Semantic Views (for Cortex Analyst)                       │
+│ - sv_o2c_reconciliation                                   │
+│ - sv_o2c_customer_summary                                 │
+│ - Uses dbt_semantic_view package (Snowflake-Labs)         │
+│ - Created as SEMANTIC VIEW objects in Snowflake           │
 └───────────────────────────────────────────────────────────┘
 ```
 

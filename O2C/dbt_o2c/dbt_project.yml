@@ -82,6 +82,17 @@ models:
         +access: public             # Published for semantic layer
         +docs:
           node_color: "#E91E63"     # Pink for aggregates
+    
+    # ═══════════════════════════════════════════════════
+    # SEMANTIC VIEWS (For Cortex Analyst)
+    # ═══════════════════════════════════════════════════
+    semantic_views:
+      +materialized: semantic_view  # Uses dbt_semantic_view package
+      +schema: o2c_semantic_views
+      +tags: ['o2c', 'semantic_view', 'cortex_analyst']
+      +access: public               # Published for Cortex Analyst
+      +docs:
+        node_color: "#FF9800"       # Orange for semantic views
 
 # Snapshots configuration
 snapshots:
