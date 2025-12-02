@@ -1,0 +1,53 @@
+version: 2
+
+sources:
+  - name: o2c_transactions
+    description: "Order-to-Cash transactional data"
+    database: edw
+    schema: corp_tran
+    
+    tables:
+      - name: fact_sales_orders
+        description: "Sales orders from ERP systems"
+        columns:
+          - name: source_system
+            tests:
+              - not_null
+              - accepted_values:
+                  values: ['BRP900', 'CIP900', 'EEP300']
+          - name: order_id
+            tests: [not_null]
+          - name: customer_id
+            tests: [not_null]
+      
+      - name: fact_invoices
+        description: "Customer invoices"
+        columns:
+          - name: source_system
+            tests: [not_null]
+          - name: invoice_id
+            tests: [not_null]
+      
+      - name: fact_payments
+        description: "Customer payments"
+        columns:
+          - name: source_system
+            tests: [not_null]
+          - name: payment_id
+            tests: [not_null]
+  
+  - name: o2c_master_data
+    description: "Order-to-Cash master data"
+    database: edw
+    schema: corp_master
+    
+    tables:
+      - name: dim_customer
+        description: "Customer master data"
+      
+      - name: dim_payment_terms
+        description: "Payment terms master"
+      
+      - name: dim_bank_account
+        description: "Bank account master"
+
