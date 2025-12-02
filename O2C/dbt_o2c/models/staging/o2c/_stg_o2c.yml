@@ -13,7 +13,7 @@ models:
       
       **Grain:** One row per order line
     
-    access: private  # Staging is private, not published
+    access: protected  # Accessible within dbt_o2c project
     
     config:
       tags: ['o2c', 'staging', 'orders', 'enriched']
@@ -101,7 +101,7 @@ models:
       
       **Grain:** One row per invoice line
     
-    access: private
+    access: protected
     
     config:
       tags: ['o2c', 'staging', 'invoices', 'enriched']
@@ -171,7 +171,7 @@ models:
       
       **Grain:** One row per payment
     
-    access: private
+    access: protected
     
     config:
       tags: ['o2c', 'staging', 'payments', 'enriched']
