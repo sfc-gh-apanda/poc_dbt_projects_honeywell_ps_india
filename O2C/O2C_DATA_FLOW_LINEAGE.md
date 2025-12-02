@@ -8,7 +8,7 @@
 
 ## 📊 Overview
 
-Complete data lineage from **6 source tables** through **2 transformation layers** to produce **9 business-ready O2C analytics models**.
+Complete data lineage from **6 source tables** through **2 transformation layers** to produce **8 business-ready O2C analytics models**.
 
 ### Quick Summary
 
@@ -17,9 +17,10 @@ Complete data lineage from **6 source tables** through **2 transformation layers
 | **Source Tables** | 6 tables (3 facts + 3 dimensions) |
 | **Transformation Layers** | 2 layers (Staging with joins → Marts) |
 | **Staging Models** | 3 models (each with 1 LEFT JOIN) |
-| **Mart Models** | 9 models (3 dimensions + 3 core + 3 aggregates) |
+| **Mart Models** | 5 models (1 dimension + 2 core + 2 aggregates) |
+| **Total Models** | 8 dbt models (3 staging + 5 marts) |
 | **dbt Projects** | 2 projects (dbt_o2c + dbt_o2c_semantic) |
-| **Semantic Metrics** | 15+ business metrics |
+| **Semantic Metrics** | 13+ business metrics |
 
 ---
 
@@ -67,25 +68,31 @@ Complete data lineage from **6 source tables** through **2 transformation layers
          │
          ▼
 
-📊 MART LAYER (9 Models) - dbt_o2c
+📊 MART LAYER (5 Models) - dbt_o2c
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+┌──────────────────────────────────────────────────────────┐
+│ DIM_O2C_CUSTOMER (TABLE) - Published Dimension           │
+│ = DIM_CUSTOMER (source)                                  │
+│ Schema contract enforced, access: public                 │
+└──────────────────────────────────────────────────────────┘
+
 ┌───────────────────────────────────────────────────────────┐
-│ DM_O2C_RECONCILIATION (TABLE) - Main Mart                 │
+│ DM_O2C_RECONCILIATION (TABLE) - Main Core Mart            │
 │ = STG_ENRICHED_ORDERS + STG_ENRICHED_INVOICES +           │
 │   STG_ENRICHED_PAYMENTS                                   │
 │ JOINs: order_key, invoice_key                             │
-│ Output: Complete O2C view with all metrics                │
+│ Output: Complete O2C view with all enriched data          │
 └─────────────────────────┬─────────────────────────────────┘
                           │
-         ┌────────────────┴────────────────┐
-         ▼                                 ▼
-┌─────────────────────┐        ┌─────────────────────┐
-│ AGG_O2C_BY_         │        │ AGG_O2C_BY_PERIOD   │
-│ CUSTOMER            │        │                     │
-│ (TABLE)             │        │ (TABLE)             │
-└─────────────────────┘        └─────────────────────┘
-         │
-         ▼
+         ┌────────────────┼────────────────┐
+         ▼                ▼                ▼
+┌─────────────────┐  ┌──────────────┐  ┌─────────────────┐
+│ DM_O2C_CYCLE_   │  │ AGG_O2C_BY_  │  │ AGG_O2C_BY_     │
+│ ANALYSIS        │  │ CUSTOMER     │  │ PERIOD          │
+│ (TABLE)         │  │ (TABLE)      │  │ (TABLE)         │
+│ Cycle metrics   │  │ Customer agg │  │ Time-series agg │
+└─────────────────┘  └──────────────┘  └─────────────────┘
 
 🎯 SEMANTIC LAYER (Metadata Only) - dbt_o2c_semantic
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -132,17 +139,46 @@ DM_O2C_RECONCILIATION:
 
 ---
 
-## 📈 Data Volume
+## 📦 Complete Model Inventory
 
-| Layer | Model | Rows |
-|-------|-------|------|
-| Source | FACT_SALES_ORDERS | 100 |
-| Source | FACT_INVOICES | 80 |
-| Source | FACT_PAYMENTS | 60 |
-| Staging | STG_ENRICHED_ORDERS | 100 |
-| Staging | STG_ENRICHED_INVOICES | 80 |
-| Staging | STG_ENRICHED_PAYMENTS | 60 |
-| Mart | DM_O2C_RECONCILIATION | 100 |
+### **Staging Models (3 views)**
+1. `stg_enriched_orders` - Orders + Customer (LEFT JOIN)
+2. `stg_enriched_invoices` - Invoices + Payment Terms (LEFT JOIN)
+3. `stg_enriched_payments` - Payments + Bank Account (LEFT JOIN)
+
+### **Mart Models (5 tables)**
+
+**Dimensions (1):**
+1. `dim_o2c_customer` - Published customer dimension (schema contract enforced)
+
+**Core Marts (2):**
+1. `dm_o2c_reconciliation` - Main O2C reconciliation (joins all 3 staging)
+2. `dm_o2c_cycle_analysis` - Cycle time analysis (completed transactions only)
+
+**Aggregates (2):**
+1. `agg_o2c_by_customer` - Customer-level summary metrics
+2. `agg_o2c_by_period` - Time-series monthly aggregations
+
+**Total: 8 dbt models**
+
+---
+
+## 📈 Data Volume (Sample Data)
+
+| Layer | Model | Rows | Type |
+|-------|-------|------|------|
+| Source | FACT_SALES_ORDERS | ~100 | Fact |
+| Source | FACT_INVOICES | ~80 | Fact |
+| Source | FACT_PAYMENTS | ~60 | Fact |
+| Source | DIM_CUSTOMER | ~10 | Dimension |
+| Staging | STG_ENRICHED_ORDERS | ~100 | View |
+| Staging | STG_ENRICHED_INVOICES | ~80 | View |
+| Staging | STG_ENRICHED_PAYMENTS | ~60 | View |
+| Mart - Dimension | DIM_O2C_CUSTOMER | ~10 | Table |
+| Mart - Core | DM_O2C_RECONCILIATION | ~100 | Table |
+| Mart - Core | DM_O2C_CYCLE_ANALYSIS | ~60 | Table |
+| Mart - Aggregate | AGG_O2C_BY_CUSTOMER | ~10 | Table |
+| Mart - Aggregate | AGG_O2C_BY_PERIOD | ~3 | Table |
 
 ---
 
