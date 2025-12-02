@@ -1,0 +1,180 @@
+version: 2
+
+models:
+  - name: dm_o2c_reconciliation
+    description: |
+      **Order-to-Cash Reconciliation Mart**
+      
+      Complete O2C reconciliation joining all three enriched staging models:
+      1. stg_enriched_orders (orders + customer)
+      2. stg_enriched_invoices (invoices + payment terms)
+      3. stg_enriched_payments (payments + bank)
+      
+      This mart demonstrates MULTI-LEVEL JOINS:
+      - 3 joins in staging layer (fact → dimension)
+      - 2 joins in mart layer (staging → staging)
+      - Total: 5 joins across 2 layers
+      
+      **Grain:** One row per order-invoice-payment combination
+      
+      **Published for:** Semantic layer consumption
+    
+    access: public  # Published for semantic layer
+    
+    config:
+      tags: ['o2c', 'mart', 'core', 'reconciliation']
+    
+    columns:
+      - name: source_system
+        description: "Source ERP system"
+        tests:
+          - not_null
+      
+      - name: order_key
+        description: "Order line key (primary dimension)"
+        tests:
+          - not_null
+      
+      - name: invoice_key
+        description: "Invoice line key (may be NOT_INVOICED)"
+        tests:
+          - not_null
+      
+      - name: payment_key
+        description: "Payment key (may be NOT_PAID)"
+        tests:
+          - not_null
+      
+      # Order fields (from enriched staging)
+      - name: order_date
+        description: "Order date"
+        tests:
+          - not_null
+      
+      - name: order_amount
+        description: "Order amount"
+        tests:
+          - not_null
+      
+      # Customer fields (enriched in staging, passed through)
+      - name: customer_id
+        description: "Customer ID"
+      
+      - name: customer_name
+        description: "Customer name (from staging enrichment)"
+      
+      - name: customer_type
+        description: "Customer type: E or I (from staging enrichment)"
+      
+      - name: customer_country
+        description: "Customer country (from staging enrichment)"
+      
+      # Invoice fields (from enriched staging)
+      - name: invoice_date
+        description: "Invoice date"
+      
+      - name: invoice_amount
+        description: "Invoice amount"
+      
+      # Payment terms (enriched in staging, passed through)
+      - name: payment_terms_code
+        description: "Payment terms code"
+      
+      - name: payment_terms_name
+        description: "Payment terms name (from staging enrichment)"
+      
+      - name: payment_terms_days
+        description: "Payment terms days (from staging enrichment)"
+      
+      - name: due_date
+        description: "Calculated due date (from staging enrichment)"
+      
+      # Payment fields (from enriched staging)
+      - name: payment_date
+        description: "Payment date"
+      
+      - name: payment_amount
+        description: "Payment amount"
+      
+      # Bank fields (enriched in staging, passed through)
+      - name: bank_name
+        description: "Bank name (from staging enrichment)"
+      
+      - name: bank_country
+        description: "Bank country (from staging enrichment)"
+      
+      # Calculated metrics
+      - name: days_order_to_invoice
+        description: "Days from order to invoice"
+      
+      - name: days_invoice_to_payment
+        description: "Days from invoice to payment"
+      
+      - name: days_order_to_cash
+        description: "Total O2C cycle time (DSO)"
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              max_value: 1000
+              config:
+                severity: warn
+                where: "days_order_to_cash IS NOT NULL"
+      
+      - name: days_past_due
+        description: "Days past due date"
+      
+      - name: unbilled_amount
+        description: "Order amount not yet invoiced"
+      
+      - name: outstanding_amount
+        description: "Invoice amount not yet paid"
+      
+      - name: reconciliation_status
+        description: "Overall reconciliation status"
+        tests:
+          - accepted_values:
+              values: ['NOT_INVOICED', 'NOT_PAID', 'OPEN', 'CLOSED']
+      
+      - name: payment_timing
+        description: "Payment timing classification"
+        tests:
+          - accepted_values:
+              values: ['ON_TIME', 'LATE', 'OVERDUE', 'CURRENT']
+      
+      - name: loaded_at
+        description: "Mart load timestamp"
+        tests:
+          - not_null
+    
+    tests:
+      # Primary uniqueness test
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - order_key
+            - invoice_key
+            - payment_key
+      
+      # Referential integrity: All orders should exist
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          min_value: 1
+          max_value: 100000000
+          config:
+            severity: warn
+      
+      # Data quality: Check for recent data
+      - dbt_utils.recency:
+          datepart: day
+          field: loaded_at
+          interval: 7
+          config:
+            severity: error
+      
+      # Business logic: Outstanding amount should be non-negative
+      - dbt_expectations.expect_column_values_to_be_between:
+          column_name: outstanding_amount
+          min_value: -1000  # Allow small negative due to rounding
+          max_value: 100000000
+          config:
+            severity: warn
+            where: "outstanding_amount IS NOT NULL"
+

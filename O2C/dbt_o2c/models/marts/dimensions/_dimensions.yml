@@ -1,0 +1,99 @@
+version: 2
+
+models:
+  - name: dim_o2c_customer
+    description: |
+      **O2C Customer Dimension**
+      
+      Published customer dimension with schema contract enforcement.
+      Derived from master data DIM_CUSTOMER table.
+      
+      **Grain:** One row per customer per source system
+      **Contract:** Enforced (breaking changes will fail builds)
+    
+    access: public
+    
+    config:
+      contract:
+        enforced: true
+    
+    columns:
+      - name: customer_id
+        description: "Unique customer identifier (composite key)"
+        data_type: varchar
+        constraints:
+          - type: not_null
+          - type: primary_key
+      
+      - name: customer_num_sk
+        description: "Customer number from source system"
+        data_type: varchar
+        constraints:
+          - type: not_null
+      
+      - name: source_system
+        description: "Source ERP system"
+        data_type: varchar
+        constraints:
+          - type: not_null
+      
+      - name: customer_name
+        description: "Customer legal name"
+        data_type: varchar
+      
+      - name: customer_type
+        description: "Customer type: E=External, I=Internal"
+        data_type: varchar
+      
+      - name: customer_country
+        description: "Customer country code"
+        data_type: varchar
+      
+      - name: customer_country_name
+        description: "Customer country name"
+        data_type: varchar
+      
+      - name: customer_classification
+        description: "Customer classification (KEY_ACCOUNT, STRATEGIC, STANDARD)"
+        data_type: varchar
+      
+      - name: customer_account_group
+        description: "Customer account group"
+        data_type: varchar
+      
+      - name: duns_number
+        description: "D-U-N-S number from MDM"
+        data_type: varchar
+      
+      - name: global_ultimate_duns
+        description: "Global ultimate D-U-N-S number"
+        data_type: varchar
+      
+      - name: global_ultimate_name
+        description: "Global ultimate company name"
+        data_type: varchar
+      
+      - name: full_name
+        description: "Full customer name from MDM"
+        data_type: varchar
+      
+      - name: is_internal
+        description: "Flag indicating if customer is internal Honeywell entity"
+        data_type: boolean
+      
+      - name: _loaded_at
+        description: "Timestamp when dimension was loaded"
+        data_type: timestamp_ntz
+    
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - customer_num_sk
+            - source_system
+      
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          min_value: 1
+          max_value: 10000000
+          config:
+            severity: warn
+

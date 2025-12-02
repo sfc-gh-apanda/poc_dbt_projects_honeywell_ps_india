@@ -1,0 +1,94 @@
+version: 2
+
+models:
+  - name: agg_o2c_by_customer
+    description: |
+      **O2C Aggregated Metrics by Customer**
+      
+      Pre-aggregated summary for fast customer-level reporting and dashboards.
+      Reduces query time for customer analytics.
+      
+      **Source:** dm_o2c_reconciliation
+      **Grain:** One row per customer (customer_id + source_system)
+    
+    access: public
+    
+    config:
+      tags: ['o2c', 'mart', 'aggregate', 'customer']
+    
+    columns:
+      - name: source_system
+        description: "Source ERP system"
+        tests:
+          - not_null
+      
+      - name: customer_id
+        description: "Customer ID"
+        tests:
+          - not_null
+      
+      - name: customer_name
+        description: "Customer name"
+      
+      - name: customer_type
+        description: "Customer type: E or I"
+      
+      - name: customer_country
+        description: "Customer country"
+      
+      - name: total_orders
+        description: "Total count of orders"
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              max_value: 1000000
+      
+      - name: total_invoices
+        description: "Total count of invoices"
+        tests:
+          - not_null
+      
+      - name: total_payments
+        description: "Total count of payments"
+        tests:
+          - not_null
+      
+      - name: total_order_amount
+        description: "Total order amount"
+      
+      - name: total_outstanding
+        description: "Total outstanding AR"
+      
+      - name: avg_days_to_cash
+        description: "Average DSO for this customer"
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              max_value: 500
+              config:
+                severity: warn
+                where: "avg_days_to_cash IS NOT NULL"
+      
+      - name: avg_days_past_due
+        description: "Average days past due"
+      
+      - name: loaded_at
+        description: "Aggregate load timestamp"
+        tests:
+          - not_null
+    
+    tests:
+      # Primary key test
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - source_system
+            - customer_id
+      
+      # Ensure we have aggregated data
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          min_value: 1
+          max_value: 10000000
+          config:
+            severity: warn
+

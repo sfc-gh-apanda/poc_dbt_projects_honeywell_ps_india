@@ -1,0 +1,226 @@
+version: 2
+
+models:
+  - name: stg_enriched_orders
+    description: |
+      **Enriched Orders Staging Model**
+      
+      Joins sales orders with customer master data to create an enriched view.
+      This demonstrates JOIN IN STAGING LAYER pattern for dimension enrichment.
+      
+      **Enrichment:**
+      - Adds customer_name, customer_type, customer_country from DIM_CUSTOMER
+      
+      **Grain:** One row per order line
+    
+    access: private  # Staging is private, not published
+    
+    config:
+      tags: ['o2c', 'staging', 'orders', 'enriched']
+    
+    columns:
+      - name: source_system
+        description: "Source ERP system (BRP900, CIP900, EEP300)"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['BRP900', 'CIP900', 'EEP300']
+      
+      - name: order_key
+        description: "Unique order line key (source_system|order_id|order_line)"
+        tests:
+          - not_null
+          - unique
+      
+      - name: order_id
+        description: "Order ID from source system"
+        tests:
+          - not_null
+      
+      - name: customer_id
+        description: "Customer ID"
+        tests:
+          - not_null
+      
+      - name: customer_name
+        description: "Customer name (enriched from DIM_CUSTOMER)"
+      
+      - name: customer_type
+        description: "Customer type: E=External, I=Internal (enriched)"
+        tests:
+          - accepted_values:
+              values: ['E', 'I']
+              config:
+                severity: warn
+      
+      - name: order_date
+        description: "Order date"
+        tests:
+          - not_null
+      
+      - name: order_amount
+        description: "Order amount in local currency"
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              max_value: 10000000
+              config:
+                severity: warn
+      
+      - name: _dbt_loaded_at
+        description: "Timestamp when staging model was loaded"
+        tests:
+          - not_null
+    
+    tests:
+      # Recency check - data should be fresh
+      - dbt_utils.recency:
+          datepart: day
+          field: _dbt_loaded_at
+          interval: 7
+          config:
+            severity: warn
+      
+      # Row count check
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          min_value: 1
+          max_value: 100000000
+          config:
+            severity: warn
+
+  - name: stg_enriched_invoices
+    description: |
+      **Enriched Invoices Staging Model**
+      
+      Joins invoices with payment terms master to calculate due dates.
+      
+      **Enrichment:**
+      - Adds payment_terms_name, payment_terms_days from DIM_PAYMENT_TERMS
+      - Calculates due date based on payment terms
+      
+      **Grain:** One row per invoice line
+    
+    access: private
+    
+    config:
+      tags: ['o2c', 'staging', 'invoices', 'enriched']
+    
+    columns:
+      - name: source_system
+        description: "Source ERP system"
+        tests:
+          - not_null
+      
+      - name: invoice_key
+        description: "Unique invoice line key"
+        tests:
+          - not_null
+          - unique
+      
+      - name: order_key
+        description: "Foreign key to orders"
+        tests:
+          - not_null
+      
+      - name: invoice_date
+        description: "Invoice date"
+        tests:
+          - not_null
+      
+      - name: calculated_due_date
+        description: "Calculated due date (invoice_date + payment_terms_days)"
+        tests:
+          - not_null
+      
+      - name: invoice_amount
+        description: "Invoice amount"
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              max_value: 10000000
+              config:
+                severity: warn
+      
+      - name: payment_terms_days
+        description: "Payment terms in days (enriched from DIM_PAYMENT_TERMS)"
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              max_value: 365
+              config:
+                severity: warn
+    
+    tests:
+      - dbt_utils.recency:
+          datepart: day
+          field: _dbt_loaded_at
+          interval: 7
+          config:
+            severity: warn
+
+  - name: stg_enriched_payments
+    description: |
+      **Enriched Payments Staging Model**
+      
+      Joins payments with bank account master.
+      
+      **Enrichment:**
+      - Adds bank_name, bank_country, bank_account_type from DIM_BANK_ACCOUNT
+      
+      **Grain:** One row per payment
+    
+    access: private
+    
+    config:
+      tags: ['o2c', 'staging', 'payments', 'enriched']
+    
+    columns:
+      - name: source_system
+        description: "Source ERP system"
+        tests:
+          - not_null
+      
+      - name: payment_key
+        description: "Unique payment key"
+        tests:
+          - not_null
+          - unique
+      
+      - name: invoice_key
+        description: "Foreign key to invoices"
+        tests:
+          - not_null
+      
+      - name: payment_date
+        description: "Payment date"
+        tests:
+          - not_null
+      
+      - name: payment_amount
+        description: "Payment amount"
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              max_value: 10000000
+              config:
+                severity: warn
+      
+      - name: bank_name
+        description: "Bank name (enriched from DIM_BANK_ACCOUNT)"
+      
+      - name: cleared_flag
+        description: "Payment cleared flag"
+        tests:
+          - not_null
+    
+    tests:
+      - dbt_utils.recency:
+          datepart: day
+          field: _dbt_loaded_at
+          interval: 7
+          config:
+            severity: warn
+
