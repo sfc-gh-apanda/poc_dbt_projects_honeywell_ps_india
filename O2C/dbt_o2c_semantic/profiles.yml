@@ -1,0 +1,29 @@
+snowflake_o2c:
+  target: dev
+  outputs:
+    dev:
+      type: snowflake
+      # account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      # user: "{{ env_var('SNOWFLAKE_USER') }}"
+      # password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+      role: DBT_O2C_DEVELOPER
+      database: EDW
+      warehouse: COMPUTE_WH
+      schema: O2C_SEMANTIC_VIEWS
+      threads: 2
+      client_session_keep_alive: False
+      query_tag: dbt_o2c_semantic_dev
+    
+    prod:
+      type: snowflake
+      # account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      # user: "{{ env_var('SNOWFLAKE_USER') }}"
+      # password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+      role: DBT_O2C_PROD
+      database: EDW
+      warehouse: COMPUTE_WH
+      schema: O2C_SEMANTIC_VIEWS
+      threads: 4
+      client_session_keep_alive: True
+      query_tag: dbt_o2c_semantic_prod
+
