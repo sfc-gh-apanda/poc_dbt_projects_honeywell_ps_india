@@ -131,18 +131,19 @@ SELECT '✅ STEP 2 COMPLETE: O2C execution tracking views created' as status;
 -- ============================================================================
 
 -- View 3.1: O2C Source Table Freshness
+-- Note: Fact tables use CREATED_DATE, Dimension tables use LOAD_TS
 CREATE OR REPLACE VIEW O2C_SOURCE_FRESHNESS AS
 SELECT 
     'FACT_SALES_ORDERS' as source_table,
     'Transactions' as source_type,
     'CORP_TRAN' as schema_name,
     COUNT(*) as row_count,
-    MAX(LOAD_TS) as last_load_timestamp,
-    DATEDIFF('hour', MAX(LOAD_TS), CURRENT_TIMESTAMP()) as hours_since_load,
-    DATEDIFF('day', MAX(LOAD_TS), CURRENT_TIMESTAMP()) as days_since_load,
+    MAX(CREATED_DATE) as last_load_timestamp,
+    DATEDIFF('hour', MAX(CREATED_DATE), CURRENT_TIMESTAMP()) as hours_since_load,
+    DATEDIFF('day', MAX(CREATED_DATE), CURRENT_TIMESTAMP()) as days_since_load,
     CASE 
-        WHEN DATEDIFF('hour', MAX(LOAD_TS), CURRENT_TIMESTAMP()) <= 24 THEN '✅ Fresh'
-        WHEN DATEDIFF('hour', MAX(LOAD_TS), CURRENT_TIMESTAMP()) <= 48 THEN '⚠️ Warning'
+        WHEN DATEDIFF('hour', MAX(CREATED_DATE), CURRENT_TIMESTAMP()) <= 24 THEN '✅ Fresh'
+        WHEN DATEDIFF('hour', MAX(CREATED_DATE), CURRENT_TIMESTAMP()) <= 48 THEN '⚠️ Warning'
         ELSE '❌ Stale'
     END as freshness_status,
     CURRENT_TIMESTAMP() as checked_at
@@ -155,12 +156,12 @@ SELECT
     'Transactions',
     'CORP_TRAN',
     COUNT(*),
-    MAX(LOAD_TS),
-    DATEDIFF('hour', MAX(LOAD_TS), CURRENT_TIMESTAMP()),
-    DATEDIFF('day', MAX(LOAD_TS), CURRENT_TIMESTAMP()),
+    MAX(CREATED_DATE),
+    DATEDIFF('hour', MAX(CREATED_DATE), CURRENT_TIMESTAMP()),
+    DATEDIFF('day', MAX(CREATED_DATE), CURRENT_TIMESTAMP()),
     CASE 
-        WHEN DATEDIFF('hour', MAX(LOAD_TS), CURRENT_TIMESTAMP()) <= 24 THEN '✅ Fresh'
-        WHEN DATEDIFF('hour', MAX(LOAD_TS), CURRENT_TIMESTAMP()) <= 48 THEN '⚠️ Warning'
+        WHEN DATEDIFF('hour', MAX(CREATED_DATE), CURRENT_TIMESTAMP()) <= 24 THEN '✅ Fresh'
+        WHEN DATEDIFF('hour', MAX(CREATED_DATE), CURRENT_TIMESTAMP()) <= 48 THEN '⚠️ Warning'
         ELSE '❌ Stale'
     END,
     CURRENT_TIMESTAMP()
@@ -173,12 +174,12 @@ SELECT
     'Transactions',
     'CORP_TRAN',
     COUNT(*),
-    MAX(LOAD_TS),
-    DATEDIFF('hour', MAX(LOAD_TS), CURRENT_TIMESTAMP()),
-    DATEDIFF('day', MAX(LOAD_TS), CURRENT_TIMESTAMP()),
+    MAX(CREATED_DATE),
+    DATEDIFF('hour', MAX(CREATED_DATE), CURRENT_TIMESTAMP()),
+    DATEDIFF('day', MAX(CREATED_DATE), CURRENT_TIMESTAMP()),
     CASE 
-        WHEN DATEDIFF('hour', MAX(LOAD_TS), CURRENT_TIMESTAMP()) <= 24 THEN '✅ Fresh'
-        WHEN DATEDIFF('hour', MAX(LOAD_TS), CURRENT_TIMESTAMP()) <= 48 THEN '⚠️ Warning'
+        WHEN DATEDIFF('hour', MAX(CREATED_DATE), CURRENT_TIMESTAMP()) <= 24 THEN '✅ Fresh'
+        WHEN DATEDIFF('hour', MAX(CREATED_DATE), CURRENT_TIMESTAMP()) <= 48 THEN '⚠️ Warning'
         ELSE '❌ Stale'
     END,
     CURRENT_TIMESTAMP()
