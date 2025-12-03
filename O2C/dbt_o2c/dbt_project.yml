@@ -34,6 +34,13 @@ vars:
 
 models:
   dbt_o2c:
+    # ═══════════════════════════════════════════════════
+    # DYNAMIC WAREHOUSE CONFIGURATION
+    # ═══════════════════════════════════════════════════
+    # Warehouse is read from EDW.CONFIG.DBT_WAREHOUSE_CONFIG table
+    # To change warehouse: UPDATE the table, then re-run dbt
+    # Fallback: profiles.yml warehouse if config table is empty
+    +snowflake_warehouse: "{{ get_warehouse() }}"
     
     # ═══════════════════════════════════════════════════
     # STAGING LAYER (Protected - accessible within project)
