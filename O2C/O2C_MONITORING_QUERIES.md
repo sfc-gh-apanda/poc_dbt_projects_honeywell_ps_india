@@ -429,6 +429,164 @@ HAVING COUNT(*) > 1;
 
 ---
 
+## 📋 Error & Log Analysis
+
+### **22. Recent Error Log**
+
+```sql
+-- View recent errors with details
+SELECT 
+    error_time,
+    affected_object,
+    error_category,
+    error_code,
+    error_message,
+    user_name,
+    warehouse_name,
+    execution_seconds
+FROM EDW.O2C_MONITORING.O2C_ERROR_LOG
+ORDER BY error_time DESC
+LIMIT 20;
+```
+
+---
+
+### **23. Error Summary by Category**
+
+```sql
+-- Daily error breakdown by category
+SELECT 
+    error_date,
+    error_category,
+    error_count,
+    affected_objects,
+    affected_users,
+    error_codes
+FROM EDW.O2C_MONITORING.O2C_ERROR_SUMMARY
+ORDER BY error_date DESC, error_count DESC;
+```
+
+---
+
+### **24. Recurring Errors (Root Cause Analysis)**
+
+```sql
+-- Top recurring errors to investigate
+SELECT 
+    error_code,
+    error_category,
+    error_message_preview,
+    occurrence_count,
+    affected_objects,
+    first_occurrence,
+    last_occurrence,
+    span_days,
+    severity
+FROM EDW.O2C_MONITORING.O2C_RECURRING_ERRORS
+WHERE severity IN ('CRITICAL', 'HIGH')
+ORDER BY occurrence_count DESC;
+```
+
+---
+
+### **25. Error Rate Trend**
+
+```sql
+-- Track error rate over time
+SELECT 
+    date,
+    total_queries,
+    error_count,
+    success_count,
+    error_rate_pct,
+    success_rate_pct,
+    error_rate_7day_avg
+FROM EDW.O2C_MONITORING.O2C_ERROR_TREND
+ORDER BY date DESC;
+```
+
+---
+
+### **26. Query Execution Log**
+
+```sql
+-- Complete query log for debugging
+SELECT 
+    start_time,
+    target_object,
+    query_type,
+    status,
+    error_code,
+    error_message,
+    execution_seconds,
+    queue_seconds,
+    rows_produced,
+    user_name,
+    query_preview
+FROM EDW.O2C_MONITORING.O2C_QUERY_LOG
+WHERE start_time >= DATEADD(hour, -24, CURRENT_TIMESTAMP())
+ORDER BY start_time DESC;
+```
+
+---
+
+### **27. User Error Attribution**
+
+```sql
+-- Identify users with high error rates
+SELECT 
+    user_name,
+    role_name,
+    total_queries,
+    successful_queries,
+    failed_queries,
+    error_rate_pct,
+    total_execution_minutes,
+    last_activity
+FROM EDW.O2C_MONITORING.O2C_USER_ERROR_ATTRIBUTION
+WHERE error_rate_pct > 0
+ORDER BY failed_queries DESC;
+```
+
+---
+
+### **28. Specific Error Investigation**
+
+```sql
+-- Investigate specific error code
+SELECT 
+    error_time,
+    affected_object,
+    error_message,
+    user_name,
+    query_preview
+FROM EDW.O2C_MONITORING.O2C_ERROR_LOG
+WHERE error_code = 'YOUR_ERROR_CODE'  -- Replace with actual error code
+ORDER BY error_time DESC;
+```
+
+---
+
+### **29. Errors by Object**
+
+```sql
+-- Which objects have the most errors?
+SELECT 
+    affected_object,
+    COUNT(*) as error_count,
+    COUNT(DISTINCT error_code) as unique_error_codes,
+    MIN(error_time) as first_error,
+    MAX(error_time) as last_error,
+    LISTAGG(DISTINCT error_category, ', ') WITHIN GROUP (ORDER BY error_category) as error_types
+FROM EDW.O2C_MONITORING.O2C_ERROR_LOG
+WHERE error_time >= DATEADD(day, -7, CURRENT_DATE())
+GROUP BY affected_object
+ORDER BY error_count DESC
+LIMIT 10;
+```
+
+---
+
 ## ✅ Summary
 
 | Category | Queries | Purpose |
@@ -439,8 +597,22 @@ HAVING COUNT(*) > 1;
 | Performance | 4 | Build monitoring |
 | Business | 3 | KPI tracking |
 | Troubleshooting | 4 | Issue diagnosis |
+| **Error & Log Analysis** | **8** | **Error tracking & root cause** |
 
-**Total:** 21 monitoring queries
+**Total:** 29 monitoring queries
+
+---
+
+## 📊 Error Analysis Views Summary
+
+| View | Purpose |
+|------|---------|
+| `O2C_ERROR_LOG` | Detailed error log with error codes and messages |
+| `O2C_ERROR_SUMMARY` | Daily error summary by category |
+| `O2C_RECURRING_ERRORS` | Top recurring errors for root cause analysis |
+| `O2C_QUERY_LOG` | Complete query execution log (last 7 days) |
+| `O2C_ERROR_TREND` | Error rate trends with 7-day moving average |
+| `O2C_USER_ERROR_ATTRIBUTION` | User activity with error attribution |
 
 ---
 

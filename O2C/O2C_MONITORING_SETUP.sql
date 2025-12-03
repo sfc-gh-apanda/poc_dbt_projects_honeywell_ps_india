@@ -587,6 +587,198 @@ COMMENT ON VIEW O2C_ALERT_SUMMARY IS
 SELECT '✅ STEP 5 COMPLETE: O2C alert views created' as status;
 
 -- ============================================================================
+-- STEP 5.5: ERROR & LOG ANALYSIS VIEWS
+-- ============================================================================
+
+-- View 5.5.1: Detailed Error Log (with error messages)
+CREATE OR REPLACE VIEW O2C_ERROR_LOG AS
+SELECT 
+    query_id,
+    start_time as error_time,
+    end_time,
+    user_name,
+    role_name,
+    warehouse_name,
+    database_name,
+    schema_name,
+    error_code,
+    error_message,
+    -- Extract model name from query
+    COALESCE(
+        REGEXP_SUBSTR(query_text, 'TABLE\\s+([\\w.]+)', 1, 1, 'ie', 1),
+        REGEXP_SUBSTR(query_text, 'VIEW\\s+([\\w.]+)', 1, 1, 'ie', 1),
+        'Unknown'
+    ) as affected_object,
+    total_elapsed_time / 1000.0 as execution_seconds,
+    query_type,
+    -- Categorize error type
+    CASE 
+        WHEN error_code IN ('100001', '100002', '100003') THEN 'SYNTAX_ERROR'
+        WHEN error_code LIKE '002%' THEN 'OBJECT_NOT_FOUND'
+        WHEN error_code LIKE '003%' THEN 'ACCESS_DENIED'
+        WHEN error_code LIKE '001%' THEN 'INVALID_ARGUMENT'
+        WHEN error_message ILIKE '%timeout%' THEN 'TIMEOUT'
+        WHEN error_message ILIKE '%memory%' THEN 'RESOURCE_LIMIT'
+        WHEN error_message ILIKE '%duplicate%' THEN 'CONSTRAINT_VIOLATION'
+        WHEN error_message ILIKE '%null%' THEN 'NULL_CONSTRAINT'
+        ELSE 'OTHER'
+    END as error_category,
+    -- Truncate query for display
+    LEFT(query_text, 500) as query_preview,
+    query_tag
+FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
+WHERE database_name = 'EDW'
+  AND schema_name IN ('O2C_STAGING', 'O2C_CORE', 'O2C_DIMENSIONS', 'O2C_AGGREGATES', 'O2C_SEMANTIC_VIEWS')
+  AND execution_status = 'FAIL'
+  AND start_time >= DATEADD(day, -30, CURRENT_DATE())
+ORDER BY start_time DESC;
+
+COMMENT ON VIEW O2C_ERROR_LOG IS 
+    'Detailed error log with error codes and messages for O2C queries';
+
+-- View 5.5.2: Error Summary by Category
+CREATE OR REPLACE VIEW O2C_ERROR_SUMMARY AS
+SELECT 
+    DATE_TRUNC('day', error_time) as error_date,
+    error_category,
+    COUNT(*) as error_count,
+    COUNT(DISTINCT affected_object) as affected_objects,
+    COUNT(DISTINCT user_name) as affected_users,
+    ROUND(AVG(execution_seconds), 2) as avg_execution_seconds,
+    LISTAGG(DISTINCT error_code, ', ') WITHIN GROUP (ORDER BY error_code) as error_codes
+FROM O2C_ERROR_LOG
+WHERE error_time >= DATEADD(day, -30, CURRENT_DATE())
+GROUP BY 1, 2
+ORDER BY error_date DESC, error_count DESC;
+
+COMMENT ON VIEW O2C_ERROR_SUMMARY IS 
+    'Daily error summary by category for trend analysis';
+
+-- View 5.5.3: Top Recurring Errors
+CREATE OR REPLACE VIEW O2C_RECURRING_ERRORS AS
+SELECT 
+    error_code,
+    error_category,
+    LEFT(error_message, 200) as error_message_preview,
+    COUNT(*) as occurrence_count,
+    COUNT(DISTINCT affected_object) as affected_objects,
+    MIN(error_time) as first_occurrence,
+    MAX(error_time) as last_occurrence,
+    DATEDIFF('day', MIN(error_time), MAX(error_time)) as span_days,
+    CASE 
+        WHEN COUNT(*) >= 10 AND DATEDIFF('day', MIN(error_time), MAX(error_time)) <= 7 THEN 'CRITICAL'
+        WHEN COUNT(*) >= 5 THEN 'HIGH'
+        WHEN COUNT(*) >= 2 THEN 'MEDIUM'
+        ELSE 'LOW'
+    END as severity
+FROM O2C_ERROR_LOG
+WHERE error_time >= DATEADD(day, -30, CURRENT_DATE())
+GROUP BY 1, 2, 3
+ORDER BY occurrence_count DESC
+LIMIT 20;
+
+COMMENT ON VIEW O2C_RECURRING_ERRORS IS 
+    'Top recurring errors for root cause analysis';
+
+-- View 5.5.4: Query Execution Log (All queries, not just failures)
+CREATE OR REPLACE VIEW O2C_QUERY_LOG AS
+SELECT 
+    query_id,
+    start_time,
+    end_time,
+    user_name,
+    role_name,
+    warehouse_name,
+    database_name,
+    schema_name,
+    query_type,
+    execution_status as status,
+    error_code,
+    error_message,
+    total_elapsed_time / 1000.0 as execution_seconds,
+    compilation_time / 1000.0 as compilation_seconds,
+    queued_overload_time / 1000.0 as queue_seconds,
+    rows_produced,
+    bytes_scanned,
+    bytes_written,
+    -- Extract model name
+    COALESCE(
+        REGEXP_SUBSTR(query_text, 'TABLE\\s+([\\w.]+)', 1, 1, 'ie', 1),
+        REGEXP_SUBSTR(query_text, 'VIEW\\s+([\\w.]+)', 1, 1, 'ie', 1),
+        'Unknown'
+    ) as target_object,
+    query_tag,
+    LEFT(query_text, 300) as query_preview
+FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
+WHERE database_name = 'EDW'
+  AND schema_name IN ('O2C_STAGING', 'O2C_CORE', 'O2C_DIMENSIONS', 'O2C_AGGREGATES', 'O2C_SEMANTIC_VIEWS')
+  AND start_time >= DATEADD(day, -7, CURRENT_DATE())
+ORDER BY start_time DESC;
+
+COMMENT ON VIEW O2C_QUERY_LOG IS 
+    'Complete query execution log for O2C (last 7 days)';
+
+-- View 5.5.5: Error Trend Analysis
+CREATE OR REPLACE VIEW O2C_ERROR_TREND AS
+WITH daily_errors AS (
+    SELECT 
+        DATE_TRUNC('day', error_time) as error_date,
+        COUNT(*) as error_count
+    FROM O2C_ERROR_LOG
+    WHERE error_time >= DATEADD(day, -30, CURRENT_DATE())
+    GROUP BY 1
+),
+daily_queries AS (
+    SELECT 
+        DATE_TRUNC('day', start_time) as query_date,
+        COUNT(*) as query_count
+    FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
+    WHERE database_name = 'EDW'
+      AND schema_name IN ('O2C_STAGING', 'O2C_CORE', 'O2C_DIMENSIONS', 'O2C_AGGREGATES')
+      AND start_time >= DATEADD(day, -30, CURRENT_DATE())
+    GROUP BY 1
+)
+SELECT 
+    q.query_date as date,
+    q.query_count as total_queries,
+    COALESCE(e.error_count, 0) as error_count,
+    q.query_count - COALESCE(e.error_count, 0) as success_count,
+    ROUND(COALESCE(e.error_count, 0) * 100.0 / NULLIF(q.query_count, 0), 2) as error_rate_pct,
+    ROUND((q.query_count - COALESCE(e.error_count, 0)) * 100.0 / NULLIF(q.query_count, 0), 2) as success_rate_pct,
+    -- 7-day moving average for error rate
+    ROUND(AVG(COALESCE(e.error_count, 0) * 100.0 / NULLIF(q.query_count, 0)) OVER (
+        ORDER BY q.query_date 
+        ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
+    ), 2) as error_rate_7day_avg
+FROM daily_queries q
+LEFT JOIN daily_errors e ON q.query_date = e.error_date
+ORDER BY q.query_date DESC;
+
+COMMENT ON VIEW O2C_ERROR_TREND IS 
+    'Daily error rate trend with 7-day moving average';
+
+-- View 5.5.6: User Activity and Error Attribution
+CREATE OR REPLACE VIEW O2C_USER_ERROR_ATTRIBUTION AS
+SELECT 
+    user_name,
+    role_name,
+    COUNT(*) as total_queries,
+    SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END) as successful_queries,
+    SUM(CASE WHEN status = 'FAIL' THEN 1 ELSE 0 END) as failed_queries,
+    ROUND(SUM(CASE WHEN status = 'FAIL' THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(*), 0), 2) as error_rate_pct,
+    MAX(start_time) as last_activity,
+    ROUND(SUM(execution_seconds) / 60, 2) as total_execution_minutes
+FROM O2C_QUERY_LOG
+WHERE start_time >= DATEADD(day, -7, CURRENT_DATE())
+GROUP BY 1, 2
+ORDER BY failed_queries DESC, total_queries DESC;
+
+COMMENT ON VIEW O2C_USER_ERROR_ATTRIBUTION IS 
+    'User activity summary with error attribution';
+
+SELECT '✅ STEP 5.5 COMPLETE: Error & Log Analysis views created (6 views)' as status;
+
+-- ============================================================================
 -- STEP 6: O2C BUSINESS METRICS MONITORING
 -- ============================================================================
 
@@ -717,6 +909,14 @@ SELECT '
    - O2C_ALERT_STALE_SOURCES
    - O2C_ALERT_SUMMARY
 
+✅ Error & Log Analysis Views (6 views):
+   - O2C_ERROR_LOG (detailed errors with messages)
+   - O2C_ERROR_SUMMARY (daily error summary by category)
+   - O2C_RECURRING_ERRORS (top recurring errors)
+   - O2C_QUERY_LOG (complete query execution log)
+   - O2C_ERROR_TREND (error rate trends)
+   - O2C_USER_ERROR_ATTRIBUTION (user error analysis)
+
 ✅ Business Metrics (1 view):
    - O2C_BUSINESS_KPIS
 
@@ -732,18 +932,23 @@ SELECT '
 2. Check source freshness:
    SELECT * FROM EDW.O2C_MONITORING.O2C_SOURCE_FRESHNESS;
 
-3. Check model freshness:
-   SELECT * FROM EDW.O2C_MONITORING.O2C_MODEL_FRESHNESS;
+3. Check recent errors:
+   SELECT * FROM EDW.O2C_MONITORING.O2C_ERROR_LOG LIMIT 20;
 
-4. View business KPIs:
+4. View error trends:
+   SELECT * FROM EDW.O2C_MONITORING.O2C_ERROR_TREND;
+
+5. View business KPIs:
    SELECT * FROM EDW.O2C_MONITORING.O2C_BUSINESS_KPIS;
 
-5. Create Snowsight Dashboard:
+6. Create Snowsight Dashboard:
    - See O2C_DASHBOARD_QUERIES.md for pre-built queries
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 🎉 YOUR O2C MONITORING SYSTEM IS NOW LIVE!
+
+Total Views Created: 18
 
 ' as setup_complete;
 
