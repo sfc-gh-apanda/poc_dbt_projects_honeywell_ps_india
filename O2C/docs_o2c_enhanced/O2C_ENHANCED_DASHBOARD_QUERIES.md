@@ -670,6 +670,310 @@ LIMIT 50;
 
 ---
 
+## 🔬 Build & Test Insights
+
+### **TILE 23: Build Failure Details**
+
+**Purpose:** Detailed build failure analysis with error classification  
+**Type:** Table  
+**Refresh:** Every 15 minutes
+
+```sql
+-- ============================================================================
+-- O2C Enhanced Build Failure Details
+-- ============================================================================
+SELECT 
+    failure_time,
+    affected_object,
+    error_category,
+    error_code,
+    LEFT(error_message, 200) AS error_preview,
+    execution_seconds,
+    recency_severity,
+    warehouse_name,
+    user_name
+FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_BUILD_FAILURE_DETAILS
+ORDER BY failure_time DESC
+LIMIT 30;
+```
+
+---
+
+### **TILE 24: Test Summary by Type**
+
+**Purpose:** Test health grouped by test type  
+**Type:** Table with conditional formatting  
+**Refresh:** Every 4 hours
+
+```sql
+-- ============================================================================
+-- O2C Enhanced Test Summary by Type
+-- ============================================================================
+SELECT 
+    test_type,
+    total_executions,
+    passed,
+    failed,
+    pass_rate_pct,
+    avg_execution_sec,
+    health_status
+FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_TEST_SUMMARY_BY_TYPE;
+```
+
+---
+
+### **TILE 25: Test Pass Rate Trend**
+
+**Purpose:** Track test pass rates over time  
+**Type:** Line chart with moving average  
+**Refresh:** Daily
+
+```sql
+-- ============================================================================
+-- O2C Enhanced Test Pass Rate Trend (Last 30 Days)
+-- ============================================================================
+SELECT 
+    test_date,
+    total_tests,
+    passed_tests,
+    failed_tests,
+    pass_rate_pct,
+    pass_rate_7day_avg
+FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_TEST_PASS_RATE_TREND
+ORDER BY test_date DESC;
+```
+
+**Chart Configuration:**
+- X-axis: `test_date`
+- Y-axes:
+  - Primary: `pass_rate_pct` (line)
+  - Secondary: `pass_rate_7day_avg` (dashed line)
+- Add threshold line at 95%
+
+---
+
+### **TILE 26: Recurring Test Failures**
+
+**Purpose:** Identify persistent test failures  
+**Type:** Table with severity  
+**Refresh:** Daily
+
+```sql
+-- ============================================================================
+-- O2C Enhanced Recurring Test Failures
+-- ============================================================================
+SELECT 
+    test_type,
+    test_identifier,
+    days_with_failures,
+    total_failures,
+    first_failure,
+    last_failure,
+    severity,
+    alert_description
+FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_RECURRING_TEST_FAILURES
+ORDER BY 
+    CASE severity 
+        WHEN 'CRITICAL - Persistent' THEN 1 
+        WHEN 'HIGH - Recurring' THEN 2 
+        ELSE 3 
+    END,
+    total_failures DESC;
+```
+
+---
+
+## 📊 Event Table Analytics
+
+### **TILE 27: Event Analytics by Type**
+
+**Purpose:** Event distribution and metrics  
+**Type:** Table  
+**Refresh:** Every 4 hours
+
+```sql
+-- ============================================================================
+-- O2C Enhanced Event Analytics
+-- ============================================================================
+SELECT 
+    event_type,
+    source_system,
+    entity_type,
+    event_count,
+    unique_entities,
+    unique_customers,
+    total_amount,
+    avg_events_per_day
+FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_EVENT_ANALYTICS
+ORDER BY event_count DESC;
+```
+
+---
+
+### **TILE 28: Event Timeline**
+
+**Purpose:** Daily event volume  
+**Type:** Stacked bar chart  
+**Refresh:** Daily
+
+```sql
+-- ============================================================================
+-- O2C Enhanced Event Timeline (Last 30 Days)
+-- ============================================================================
+SELECT 
+    event_date,
+    event_type,
+    event_count,
+    total_amount
+FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_EVENT_TIMELINE
+ORDER BY event_date DESC, event_type;
+```
+
+**Chart Configuration:**
+- X-axis: `event_date`
+- Y-axis: `event_count`
+- Stack by: `event_type`
+
+---
+
+## 📈 Data Quality Metrics
+
+### **TILE 29: Row Count Tracking**
+
+**Purpose:** Validate data flow through layers  
+**Type:** Table  
+**Refresh:** Hourly
+
+```sql
+-- ============================================================================
+-- O2C Enhanced Row Count Tracking
+-- ============================================================================
+SELECT 
+    layer,
+    table_name,
+    description,
+    row_count,
+    latest_record,
+    checked_at
+FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_ROW_COUNT_TRACKING
+ORDER BY 
+    CASE layer
+        WHEN 'SOURCE' THEN 1
+        WHEN 'STAGING' THEN 2
+        WHEN 'DIMENSION' THEN 3
+        WHEN 'CORE' THEN 4
+        WHEN 'EVENTS' THEN 5
+        WHEN 'AGGREGATE' THEN 6
+    END;
+```
+
+---
+
+### **TILE 30: Data Reconciliation**
+
+**Purpose:** Source to staging row count validation  
+**Type:** Table with status  
+**Refresh:** Hourly
+
+```sql
+-- ============================================================================
+-- O2C Enhanced Data Reconciliation
+-- ============================================================================
+SELECT 
+    entity,
+    source_rows,
+    staging_rows,
+    row_variance,
+    variance_pct,
+    validation_status
+FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_DATA_RECONCILIATION;
+```
+
+---
+
+### **TILE 31: Null Rate Analysis**
+
+**Purpose:** Data quality - null rate monitoring  
+**Type:** Table with quality indicators  
+**Refresh:** Daily
+
+```sql
+-- ============================================================================
+-- O2C Enhanced Null Rate Analysis
+-- ============================================================================
+SELECT 
+    table_name,
+    column_name,
+    total_rows,
+    null_count,
+    null_rate_pct,
+    quality_status
+FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_NULL_RATE_ANALYSIS;
+```
+
+---
+
+### **TILE 32: Data Completeness Scorecard**
+
+**Purpose:** Overall data completeness metrics  
+**Type:** Scorecard  
+**Refresh:** Hourly
+
+```sql
+-- ============================================================================
+-- O2C Enhanced Data Completeness
+-- ============================================================================
+SELECT 
+    dataset,
+    total_orders,
+    invoice_rate_pct,
+    payment_rate_pct,
+    customer_enrichment_pct,
+    completeness_score,
+    quality_grade
+FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_DATA_COMPLETENESS;
+```
+
+---
+
+### **TILE 33: Operational Summary**
+
+**Purpose:** Comprehensive operational dashboard  
+**Type:** Scorecard (12 metrics)  
+**Refresh:** Every 5 minutes
+
+```sql
+-- ============================================================================
+-- O2C Enhanced Operational Summary
+-- ============================================================================
+SELECT 
+    -- Build Health
+    builds_24h,
+    successful_builds_24h,
+    failed_builds_24h,
+    build_success_rate_24h,
+    
+    -- Test Health
+    tests_24h,
+    test_pass_rate_24h,
+    
+    -- Data Quality
+    data_completeness_score,
+    stale_sources,
+    stale_models,
+    
+    -- Events
+    events_24h,
+    
+    -- Alerts
+    critical_alerts,
+    platform_health_score,
+    platform_health_status
+FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_OPERATIONAL_SUMMARY;
+```
+
+---
+
 ## 🎨 Dashboard Setup Guide
 
 ### **Step 1: Run Prerequisites**
@@ -753,7 +1057,7 @@ For each query above:
 
 ## ✅ Summary
 
-**Total Tiles:** 22 dashboard queries
+**Total Tiles:** 33 dashboard queries across 8 categories
 
 **Coverage:**
 
@@ -761,14 +1065,33 @@ For each query above:
 |----------|-------|-------------|
 | Executive KPIs | 3 tiles | Business scorecard, trends, AR aging |
 | Operations Monitoring | 3 tiles | Execution trend, model performance, recent runs |
-| Data Quality | 4 tiles | Source freshness, model freshness, row counts, reconciliation |
+| Data Quality & Freshness | 4 tiles | Source freshness, model freshness, row counts, reconciliation |
 | Performance | 2 tiles | Anomaly detection, error trend |
 | Data Load Patterns | 3 tiles | Pattern comparison, truncate/load, incremental |
 | Audit & Tracking | 3 tiles | Audit validation, batch tracking, run log |
 | Alerts & Health | 4 tiles | Health summary, active alerts, failures, error log |
+| **Build & Test Insights** | **4 tiles** | **Build failures, test summary, pass rate trend, recurring failures** |
+| **Event Analytics** | **2 tiles** | **Event analytics, event timeline** |
+| **Data Quality Metrics** | **5 tiles** | **Row counts, reconciliation, null rates, completeness, operational summary** |
+
+**Total Monitoring Views:** 25 views in `O2C_ENHANCED_MONITORING` schema
+
+**New Views Added:**
+- `O2C_ENH_BUILD_FAILURE_DETAILS` - Extended build failure analysis with error classification
+- `O2C_ENH_TEST_SUMMARY_BY_TYPE` - Test results grouped by test type
+- `O2C_ENH_TEST_PASS_RATE_TREND` - Daily test pass rate with 7-day moving average
+- `O2C_ENH_RECURRING_TEST_FAILURES` - Persistent test failures identification
+- `O2C_ENH_EVENT_ANALYTICS` - Event table metrics by type/source
+- `O2C_ENH_EVENT_TIMELINE` - Daily event timeline (30 days)
+- `O2C_ENH_ROW_COUNT_TRACKING` - Row counts across all layers
+- `O2C_ENH_DATA_RECONCILIATION` - Source to staging validation
+- `O2C_ENH_NULL_RATE_ANALYSIS` - Null rate for critical columns
+- `O2C_ENH_DATA_COMPLETENESS` - Completeness scorecard
+- `O2C_ENH_EXECUTION_TIMELINE` - Gantt-style execution timeline
+- `O2C_ENH_OPERATIONAL_SUMMARY` - Comprehensive operational dashboard
 
 **Schema Names Used:**
-- `EDW.O2C_ENHANCED_MONITORING.*` - Monitoring views
+- `EDW.O2C_ENHANCED_MONITORING.*` - Monitoring views (25 views)
 - `EDW.O2C_AUDIT.*` - Audit tracking views
 - `EDW.O2C_ENHANCED*` - All dbt model schemas (Core, Dimensions, Events, etc.)
 
