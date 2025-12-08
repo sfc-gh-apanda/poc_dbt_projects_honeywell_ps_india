@@ -1,7 +1,6 @@
 {{
     config(
         materialized='incremental',
-        pre_hook="{{ use_dynamic_warehouse() }}",
         unique_key='reconciliation_key',
         incremental_strategy='merge',
         merge_update_columns=[

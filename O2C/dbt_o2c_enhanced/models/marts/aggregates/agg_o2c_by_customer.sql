@@ -1,7 +1,6 @@
 {{
     config(
         materialized='table',
-        pre_hook="{{ use_dynamic_warehouse() }}",
         tags=['aggregate', 'truncate_load']
     )
 }}

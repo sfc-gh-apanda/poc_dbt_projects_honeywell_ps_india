@@ -1,7 +1,6 @@
 {{
     config(
         materialized='incremental',
-        pre_hook="{{ use_dynamic_warehouse() }}",
         incremental_strategy='append',
         tags=['events', 'append_only', 'pattern_example']
     )

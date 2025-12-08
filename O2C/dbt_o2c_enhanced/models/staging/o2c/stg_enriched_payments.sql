@@ -1,7 +1,6 @@
 {{
     config(
         materialized='view',
-        pre_hook="{{ use_dynamic_warehouse() }}",
         tags=['staging', 'payments']
     )
 }}
