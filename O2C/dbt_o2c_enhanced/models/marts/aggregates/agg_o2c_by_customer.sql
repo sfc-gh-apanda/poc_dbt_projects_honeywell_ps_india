@@ -9,6 +9,8 @@
 ═══════════════════════════════════════════════════════════════════════════════
 CUSTOMER AGGREGATE - Truncate & Load Pattern
 ═══════════════════════════════════════════════════════════════════════════════
+
+Audit: Full audit columns (uniform set - dbt_created_at = dbt_updated_at for full refresh)
 #}
 
 WITH customer_metrics AS (
@@ -64,11 +66,7 @@ SELECT
         ELSE 'POOR'
     END AS payment_behavior,
     
-    -- Audit columns
-    '{{ invocation_id }}' AS dbt_run_id,
-    MD5('{{ invocation_id }}' || '{{ this.name }}') AS dbt_batch_id,
-    CURRENT_TIMESTAMP()::TIMESTAMP_NTZ AS dbt_loaded_at
+    -- Audit columns (uniform set - full refresh so created = updated)
+    {{ audit_columns() }}
 
 FROM customer_metrics cm
-
-

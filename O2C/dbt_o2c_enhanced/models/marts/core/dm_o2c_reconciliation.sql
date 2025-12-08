@@ -8,7 +8,8 @@
             'payment_date', 'payment_amount', 'days_order_to_invoice',
             'days_invoice_to_payment', 'days_order_to_cash', 'days_past_due',
             'unbilled_amount', 'outstanding_amount', 'reconciliation_status',
-            'payment_timing', 'dbt_updated_at', 'dbt_run_id', 'dbt_row_hash'
+            'payment_timing', 'dbt_updated_at', 'dbt_run_id', 'dbt_batch_id',
+            'dbt_loaded_at', 'dbt_source_model', 'dbt_environment', 'dbt_row_hash'
         ],
         tags=['core', 'merge', 'upsert', 'pattern_example']
     )
@@ -112,22 +113,15 @@ SELECT
     END AS payment_timing,
     
     -- Row hash for change detection
-    MD5(
-        COALESCE(inv.invoice_key, 'NOT_INVOICED') || '|' ||
-        COALESCE(pay.payment_key, 'NOT_PAID') || '|' ||
-        COALESCE(CAST(inv.invoice_amount AS VARCHAR), '') || '|' ||
-        COALESCE(CAST(pay.payment_amount AS VARCHAR), '')
-    ) AS dbt_row_hash,
+    {{ row_hash([
+        'COALESCE(inv.invoice_key, \'NOT_INVOICED\')',
+        'COALESCE(pay.payment_key, \'NOT_PAID\')',
+        'COALESCE(CAST(inv.invoice_amount AS VARCHAR), \'\')',
+        'COALESCE(CAST(pay.payment_amount AS VARCHAR), \'\')'
+    ]) }},
     
-    -- Audit columns
-    '{{ invocation_id }}' AS dbt_run_id,
-    MD5('{{ invocation_id }}' || '{{ this.name }}') AS dbt_batch_id,
-    {% if is_incremental() %}
-    COALESCE(existing.dbt_created_at, CURRENT_TIMESTAMP()::TIMESTAMP_NTZ) AS dbt_created_at,
-    {% else %}
-    CURRENT_TIMESTAMP()::TIMESTAMP_NTZ AS dbt_created_at,
-    {% endif %}
-    CURRENT_TIMESTAMP()::TIMESTAMP_NTZ AS dbt_updated_at
+    -- Audit columns (incremental - preserves dbt_created_at)
+    {{ audit_columns_incremental('existing') }}
 
 FROM {{ ref('stg_enriched_orders') }} orders
 

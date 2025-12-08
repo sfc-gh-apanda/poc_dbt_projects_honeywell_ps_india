@@ -1,29 +1,46 @@
 {#
 ═══════════════════════════════════════════════════════════════════════════════
-AUDIT COLUMNS MACRO
+AUDIT COLUMNS MACRO - STANDARDIZED FOR ALL MODELS
 ═══════════════════════════════════════════════════════════════════════════════
 
-Purpose: Generate standardized audit columns for all models
+Purpose: Generate standardized audit columns for all models (views, tables, incremental)
 
-Columns Generated:
+Columns Generated (UNIFORM across all models):
   - dbt_run_id          : Unique identifier for the dbt run (invocation)
   - dbt_batch_id        : Unique identifier per model per run
   - dbt_loaded_at       : Timestamp when record was loaded
+  - dbt_created_at      : When record was created (= dbt_updated_at for non-incremental)
+  - dbt_updated_at      : When record was last modified (always current)
   - dbt_source_model    : Name of the dbt model that created the record
   - dbt_environment     : Target environment (dev/prod)
 
-Usage:
+Usage (for views, tables, full-refresh models):
   SELECT 
       your_columns,
       {{ audit_columns() }}
   FROM your_source
 
+Usage (for incremental models - preserves dbt_created_at):
+  SELECT 
+      your_columns,
+      {{ audit_columns_incremental('existing_alias') }}
+  FROM your_source s
+  {% if is_incremental() %}
+  LEFT JOIN {{ this }} existing_alias ON s.key = existing_alias.key
+  {% endif %}
+
 ═══════════════════════════════════════════════════════════════════════════════
 #}
 
+
+{# ═══════════════════════════════════════════════════════════════════════════
+   STANDARD AUDIT COLUMNS - For views, tables, full-refresh models
+   For non-incremental: dbt_created_at = dbt_updated_at = current timestamp
+   ═══════════════════════════════════════════════════════════════════════════ #}
+
 {% macro audit_columns() %}
     -- ═══════════════════════════════════════════════════════════════
-    -- AUDIT COLUMNS - Automatically populated by dbt
+    -- AUDIT COLUMNS - Uniform set for all models
     -- ═══════════════════════════════════════════════════════════════
     
     -- Run tracking: Unique ID for entire dbt execution
@@ -35,6 +52,12 @@ Usage:
     -- Timestamp: When this record was loaded
     CURRENT_TIMESTAMP()::TIMESTAMP_NTZ AS dbt_loaded_at,
     
+    -- CREATE timestamp: For non-incremental, same as updated (all rows recreated)
+    CURRENT_TIMESTAMP()::TIMESTAMP_NTZ AS dbt_created_at,
+    
+    -- UPDATE timestamp: When record was last modified
+    CURRENT_TIMESTAMP()::TIMESTAMP_NTZ AS dbt_updated_at,
+    
     -- Source tracking: Which model created this
     '{{ this.name }}'::VARCHAR(100) AS dbt_source_model,
     
@@ -43,32 +66,14 @@ Usage:
 {% endmacro %}
 
 
-{#
-═══════════════════════════════════════════════════════════════════════════════
-AUDIT COLUMNS FOR INCREMENTAL MODELS (with create/update tracking)
-═══════════════════════════════════════════════════════════════════════════════
+{# ═══════════════════════════════════════════════════════════════════════════
+   INCREMENTAL AUDIT COLUMNS - For incremental models with merge/upsert
+   Preserves dbt_created_at for existing records, updates dbt_updated_at
+   ═══════════════════════════════════════════════════════════════════════════ #}
 
-Purpose: Audit columns that preserve dbt_created_at for existing records
-
-Additional Columns:
-  - dbt_created_at      : When record was first created (preserved on update)
-  - dbt_updated_at      : When record was last modified (always current)
-
-Usage in incremental model:
-  SELECT 
-      your_columns,
-      {{ audit_columns_incremental() }}
-  FROM your_source s
-  {% if is_incremental() %}
-  LEFT JOIN {{ this }} t ON s.key = t.key
-  {% endif %}
-
-═══════════════════════════════════════════════════════════════════════════════
-#}
-
-{% macro audit_columns_incremental() %}
+{% macro audit_columns_incremental(existing_alias='existing') %}
     -- ═══════════════════════════════════════════════════════════════
-    -- AUDIT COLUMNS (Incremental with create/update tracking)
+    -- AUDIT COLUMNS (Incremental - preserves create timestamp)
     -- ═══════════════════════════════════════════════════════════════
     
     -- Run tracking
@@ -77,9 +82,12 @@ Usage in incremental model:
     -- Batch tracking
     MD5('{{ invocation_id }}' || '{{ this.name }}')::VARCHAR(32) AS dbt_batch_id,
     
-    -- CREATE timestamp: Only set on first insert, preserved on update
+    -- Loaded timestamp
+    CURRENT_TIMESTAMP()::TIMESTAMP_NTZ AS dbt_loaded_at,
+    
+    -- CREATE timestamp: Preserved for existing rows, set for new rows
     {% if is_incremental() %}
-    COALESCE(t.dbt_created_at, CURRENT_TIMESTAMP())::TIMESTAMP_NTZ AS dbt_created_at,
+    COALESCE({{ existing_alias }}.dbt_created_at, CURRENT_TIMESTAMP()::TIMESTAMP_NTZ) AS dbt_created_at,
     {% else %}
     CURRENT_TIMESTAMP()::TIMESTAMP_NTZ AS dbt_created_at,
     {% endif %}
@@ -93,28 +101,3 @@ Usage in incremental model:
     -- Environment
     '{{ target.name }}'::VARCHAR(20) AS dbt_environment
 {% endmacro %}
-
-
-{#
-═══════════════════════════════════════════════════════════════════════════════
-MINIMAL AUDIT COLUMNS (Lightweight version)
-═══════════════════════════════════════════════════════════════════════════════
-
-Purpose: Just the essential audit columns for views or lightweight models
-
-Usage:
-  SELECT 
-      your_columns,
-      {{ audit_columns_minimal() }}
-  FROM your_source
-
-═══════════════════════════════════════════════════════════════════════════════
-#}
-
-{% macro audit_columns_minimal() %}
-    -- Minimal audit columns
-    '{{ invocation_id }}'::VARCHAR(50) AS dbt_run_id,
-    CURRENT_TIMESTAMP()::TIMESTAMP_NTZ AS dbt_loaded_at
-{% endmacro %}
-
-

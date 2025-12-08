@@ -12,7 +12,7 @@ STG_ENRICHED_INVOICES - Invoices with Payment Terms Enrichment
 
 Purpose: Join fact_invoices with dim_payment_terms for payment details
 Pattern: VIEW (always current, no materialization)
-Audit: Minimal audit columns (run_id, loaded_at)
+Audit: Full audit columns (uniform across all models)
 
 ═══════════════════════════════════════════════════════════════════════════════
 #}
@@ -45,9 +45,8 @@ SELECT
     -- Calculated due date
     DATEADD('day', COALESCE(pt.payment_terms_days, 30), inv.invoice_date) AS calculated_due_date,
     
-    -- Audit columns (minimal for views)
-    '{{ invocation_id }}' AS dbt_run_id,
-    CURRENT_TIMESTAMP()::TIMESTAMP_NTZ AS dbt_loaded_at
+    -- Audit columns (uniform set)
+    {{ audit_columns() }}
 
 FROM {{ source('corp_tran', 'FACT_INVOICES') }} inv
 

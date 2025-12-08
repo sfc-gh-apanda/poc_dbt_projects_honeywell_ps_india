@@ -12,7 +12,7 @@ STG_ENRICHED_PAYMENTS - Payments with Bank Account Enrichment
 
 Purpose: Join fact_payments with dim_bank_account for bank details
 Pattern: VIEW (always current, no materialization)
-Audit: Minimal audit columns (run_id, loaded_at)
+Audit: Full audit columns (uniform across all models)
 
 ═══════════════════════════════════════════════════════════════════════════════
 #}
@@ -42,9 +42,8 @@ SELECT
     bank.bank_country,
     bank.bank_account_type,
     
-    -- Audit columns (minimal for views)
-    '{{ invocation_id }}' AS dbt_run_id,
-    CURRENT_TIMESTAMP()::TIMESTAMP_NTZ AS dbt_loaded_at
+    -- Audit columns (uniform set)
+    {{ audit_columns() }}
 
 FROM {{ source('corp_tran', 'FACT_PAYMENTS') }} pay
 

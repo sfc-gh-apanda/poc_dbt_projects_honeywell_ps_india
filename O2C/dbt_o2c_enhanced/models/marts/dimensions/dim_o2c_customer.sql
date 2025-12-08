@@ -31,6 +31,7 @@ Testing This Pattern:
   2. Check row count before/after
   3. Verify dbt_loaded_at is current timestamp
   4. All records have same dbt_run_id
+  5. dbt_created_at = dbt_updated_at (full refresh)
 
 ═══════════════════════════════════════════════════════════════════════════════
 #}
@@ -65,14 +66,10 @@ SELECT
     update_ts AS source_update_ts,
     
     -- Row hash for downstream change detection
-    MD5(COALESCE(customer_name, '') || '|' || COALESCE(customer_type, '') || '|' || COALESCE(customer_country, '')) AS dbt_row_hash,
+    {{ row_hash(['customer_name', 'customer_type', 'customer_country', 'customer_classification']) }},
     
-    -- Audit columns
-    '{{ invocation_id }}' AS dbt_run_id,
-    MD5('{{ invocation_id }}' || '|' || customer_num_sk) AS dbt_batch_id,
-    CURRENT_TIMESTAMP()::TIMESTAMP_NTZ AS dbt_loaded_at,
-    CURRENT_TIMESTAMP()::TIMESTAMP_NTZ AS dbt_created_at,
-    CURRENT_TIMESTAMP()::TIMESTAMP_NTZ AS dbt_updated_at
+    -- Audit columns (uniform set - dbt_created_at = dbt_updated_at for full refresh)
+    {{ audit_columns() }}
 
 FROM {{ source('corp_master', 'DIM_CUSTOMER') }}
 

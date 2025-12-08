@@ -23,6 +23,8 @@ Testing This Pattern:
   4. Verify:
      - New events are appended
      - Old events are unchanged
+     - Each batch has unique dbt_batch_id
+     - dbt_created_at = dbt_updated_at (append-only, no updates)
 
 ═══════════════════════════════════════════════════════════════════════════════
 #}
@@ -96,10 +98,8 @@ SELECT
     e.event_status,
     e.event_description,
     
-    -- Audit columns
-    '{{ invocation_id }}' AS dbt_run_id,
-    MD5('{{ invocation_id }}' || '{{ this.name }}') AS dbt_batch_id,
-    CURRENT_TIMESTAMP()::TIMESTAMP_NTZ AS dbt_loaded_at
+    -- Audit columns (uniform set - append-only so created = updated)
+    {{ audit_columns() }}
 
 FROM all_events e
 

@@ -31,7 +31,9 @@ Testing This Pattern:
   4. Second run: dbt run --select fact_o2c_daily
   5. Verify:
      - Records older than 3 days: UNCHANGED
-     - Records within 3 days: DELETED and RE-INSERTED
+     - Records within 3 days: DELETED and RE-INSERTED (new dbt_loaded_at)
+
+Audit: Full audit columns (uniform set - delete+insert so created = updated for new rows)
 
 ═══════════════════════════════════════════════════════════════════════════════
 #}
@@ -114,10 +116,8 @@ SELECT
         ELSE 'UNPAID'
     END AS payment_status,
     
-    -- Audit columns
-    '{{ invocation_id }}' AS dbt_run_id,
-    MD5('{{ invocation_id }}' || '{{ this.name }}') AS dbt_batch_id,
-    CURRENT_TIMESTAMP()::TIMESTAMP_NTZ AS dbt_loaded_at
+    -- Audit columns (uniform set - delete+insert so created = updated)
+    {{ audit_columns() }}
 
 FROM daily_orders o
 LEFT JOIN daily_invoices i ON o.order_key = i.order_key

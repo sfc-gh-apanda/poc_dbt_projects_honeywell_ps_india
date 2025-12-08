@@ -12,7 +12,7 @@ STG_ENRICHED_ORDERS - Orders with Customer Enrichment
 
 Purpose: Join fact_sales_orders with dim_customer for customer details
 Pattern: VIEW (always current, no materialization)
-Audit: Minimal audit columns (run_id, loaded_at)
+Audit: Full audit columns (uniform across all models)
 
 ═══════════════════════════════════════════════════════════════════════════════
 #}
@@ -44,9 +44,8 @@ SELECT
     orders.sales_org,
     orders.profit_center,
     
-    -- Audit columns (minimal for views)
-    '{{ invocation_id }}' AS dbt_run_id,
-    CURRENT_TIMESTAMP()::TIMESTAMP_NTZ AS dbt_loaded_at
+    -- Audit columns (uniform set)
+    {{ audit_columns() }}
 
 FROM {{ source('corp_tran', 'FACT_SALES_ORDERS') }} orders
 

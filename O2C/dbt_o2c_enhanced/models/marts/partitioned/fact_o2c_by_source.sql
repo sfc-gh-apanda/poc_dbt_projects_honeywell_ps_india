@@ -35,6 +35,8 @@ Testing This Pattern:
      - BRP records: Deleted and re-inserted (new dbt_loaded_at)
      - Other sources: UNCHANGED
 
+Audit: Full audit columns (uniform set - pre-hook delete so created = updated)
+
 ═══════════════════════════════════════════════════════════════════════════════
 #}
 
@@ -68,10 +70,8 @@ SELECT
     s.order_currency,
     s.order_status,
     
-    -- Audit columns
-    '{{ invocation_id }}' AS dbt_run_id,
-    MD5('{{ invocation_id }}' || '{{ this.name }}') AS dbt_batch_id,
-    CURRENT_TIMESTAMP()::TIMESTAMP_NTZ AS dbt_loaded_at
+    -- Audit columns (uniform set - pre-hook delete so created = updated)
+    {{ audit_columns() }}
 
 FROM source_data s
 
