@@ -6,6 +6,7 @@ models:
   # ═══════════════════════════════════════════════════════════════════════════════
   # Pattern: INCREMENTAL with append strategy
   # Audit: Full 7-column audit set (dbt_created_at = dbt_updated_at for append)
+  # Note: Run with --full-refresh if audit columns are missing from existing table
   # ═══════════════════════════════════════════════════════════════════════════════
 
   - name: fact_o2c_events
@@ -17,6 +18,9 @@ models:
       Captures order, invoice, and payment events as an immutable event log.
       - New events: INSERTED only
       - Existing events: NEVER updated
+      
+      **Note:** Event ID is NOT unique across runs (same events may be appended 
+      if data is reprocessed). Use event_id + dbt_batch_id for true uniqueness.
       
       **Audit Columns (7 uniform):**
       - dbt_run_id: dbt invocation ID
@@ -35,9 +39,8 @@ models:
     columns:
       # Event Identity
       - name: event_id
-        description: "Unique event ID (MD5 hash)"
+        description: "Event ID (MD5 hash of source_system|entity_id|event_type). NOT unique across runs."
         tests:
-          - unique
           - not_null
       
       - name: event_type
@@ -121,4 +124,3 @@ models:
         description: "Target environment (dev/prod)"
         tests:
           - not_null
-
