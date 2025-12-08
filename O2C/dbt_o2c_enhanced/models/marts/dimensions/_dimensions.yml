@@ -1,0 +1,107 @@
+version: 2
+
+models:
+  - name: dim_o2c_customer
+    description: |
+      **Customer Dimension**
+      
+      **Data Load Pattern:** TRUNCATE & LOAD (materialized='table')
+      
+      Full table replacement on every dbt run.
+      
+      **Audit Columns:**
+      - dbt_run_id: dbt invocation ID
+      - dbt_batch_id: Unique per model per run
+      - dbt_loaded_at: Load timestamp
+      - dbt_row_hash: Change detection hash
+    
+    access: public
+    
+    config:
+      tags: ['dimension', 'truncate_load', 'pattern_example']
+      contract:
+        enforced: true
+    
+    columns:
+      - name: customer_key
+        description: "Surrogate key (MD5 hash)"
+        data_type: VARCHAR(32)
+        tests:
+          - unique
+          - not_null
+      
+      - name: source_system
+        description: "Source ERP system"
+        data_type: VARCHAR(10)
+        tests:
+          - not_null
+      
+      - name: customer_id
+        description: "Customer ID (natural key)"
+        data_type: VARCHAR(50)
+        tests:
+          - not_null
+      
+      - name: customer_name
+        description: "Customer name"
+        data_type: VARCHAR(200)
+      
+      - name: customer_type
+        description: "Customer type (E=External, I=Internal)"
+        data_type: VARCHAR(10)
+      
+      - name: customer_country
+        description: "Customer country"
+        data_type: VARCHAR(100)
+      
+      - name: customer_region
+        description: "Customer region"
+        data_type: VARCHAR(100)
+      
+      - name: credit_limit
+        description: "Customer credit limit"
+        data_type: NUMBER(18,2)
+      
+      - name: payment_terms_code
+        description: "Default payment terms"
+        data_type: VARCHAR(20)
+      
+      - name: source_load_ts
+        description: "Source system load timestamp"
+        data_type: TIMESTAMP_NTZ
+      
+      - name: source_update_ts
+        description: "Source system update timestamp"
+        data_type: TIMESTAMP_NTZ
+      
+      - name: dbt_row_hash
+        description: "Row hash for change detection"
+        data_type: VARCHAR(32)
+      
+      - name: dbt_run_id
+        description: "dbt invocation ID"
+        data_type: VARCHAR(50)
+        tests:
+          - not_null
+      
+      - name: dbt_batch_id
+        description: "Batch ID (unique per model per run)"
+        data_type: VARCHAR(32)
+        tests:
+          - not_null
+      
+      - name: dbt_loaded_at
+        description: "Load timestamp"
+        data_type: TIMESTAMP_NTZ
+        tests:
+          - not_null
+      
+      - name: dbt_source_model
+        description: "Source dbt model"
+        data_type: VARCHAR(100)
+      
+      - name: dbt_environment
+        description: "Target environment"
+        data_type: VARCHAR(20)
+
+

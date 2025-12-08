@@ -1,0 +1,14 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# PACKAGES.YML - dbt Package Dependencies
+# ═══════════════════════════════════════════════════════════════════════════════
+
+packages:
+  # Core utilities for surrogate keys, deduplication, etc.
+  - package: dbt-labs/dbt_utils
+    version: [">=1.0.0", "<2.0.0"]
+  
+  # Data quality expectations and tests
+  - package: calogica/dbt_expectations
+    version: [">=0.10.0", "<0.11.0"]
+
+

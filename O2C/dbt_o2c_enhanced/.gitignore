@@ -1,0 +1,16 @@
+# dbt artifacts
+target/
+dbt_packages/
+logs/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+
+# Snowflake Native dbt
+*.log
+
+

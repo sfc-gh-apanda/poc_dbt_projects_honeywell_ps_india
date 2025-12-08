@@ -1,0 +1,82 @@
+version: 2
+
+sources:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # O2C SOURCE TABLES - Transactional Data
+  # ═══════════════════════════════════════════════════════════════════════════
+  - name: corp_tran
+    description: "Corporate transactional data - Orders, Invoices, Payments"
+    database: EDW
+    schema: CORP_TRAN
+    
+    tables:
+      - name: FACT_SALES_ORDERS
+        description: "Sales order headers and lines"
+        columns:
+          - name: ORDER_ID
+            description: "Primary order identifier"
+          - name: SOURCE_SYSTEM
+            description: "Source ERP system"
+          - name: CREATED_DATE
+            description: "Order creation timestamp"
+        
+      - name: FACT_INVOICES
+        description: "Customer invoices"
+        columns:
+          - name: INVOICE_ID
+            description: "Primary invoice identifier"
+          - name: ORDER_ID
+            description: "Related order ID"
+          - name: CREATED_DATE
+            description: "Invoice creation timestamp"
+        
+      - name: FACT_PAYMENTS
+        description: "Payment transactions"
+        columns:
+          - name: PAYMENT_ID
+            description: "Primary payment identifier"
+          - name: INVOICE_ID
+            description: "Related invoice ID"
+          - name: CREATED_DATE
+            description: "Payment creation timestamp"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # O2C SOURCE TABLES - Master Data
+  # ═══════════════════════════════════════════════════════════════════════════
+  - name: corp_master
+    description: "Corporate master data - Customers, Payment Terms, Banks"
+    database: EDW
+    schema: CORP_MASTER
+    
+    tables:
+      - name: DIM_CUSTOMER
+        description: "Customer master data"
+        columns:
+          - name: CUSTOMER_NUM_SK
+            description: "Customer surrogate key"
+          - name: CUSTOMER_NAME
+            description: "Customer name"
+          - name: LOAD_TS
+            description: "Record load timestamp"
+        
+      - name: DIM_PAYMENT_TERMS
+        description: "Payment terms reference data"
+        columns:
+          - name: PAYMENT_TERMS_CODE
+            description: "Payment terms code"
+          - name: PAYMENT_TERMS_NAME
+            description: "Payment terms description"
+          - name: LOAD_TS
+            description: "Record load timestamp"
+        
+      - name: DIM_BANK_ACCOUNT
+        description: "Bank account master data"
+        columns:
+          - name: BANK_ACCOUNT_ID
+            description: "Bank account identifier"
+          - name: BANK_NAME
+            description: "Bank name"
+          - name: LOAD_TS
+            description: "Record load timestamp"
+
+

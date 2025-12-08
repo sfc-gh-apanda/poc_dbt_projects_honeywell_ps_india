@@ -1,0 +1,135 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# DBT_O2C_ENHANCED - Order-to-Cash Analytics with Full Audit & Telemetry
+# ═══════════════════════════════════════════════════════════════════════════════
+# 
+# ENHANCEMENTS OVER BASELINE (dbt_o2c):
+# ✅ Audit columns (dbt_run_id, dbt_batch_id, dbt_created_at, dbt_updated_at)
+# ✅ Row hash for change detection
+# ✅ Multiple data load patterns (truncate, append, merge, delete+insert)
+# ✅ Processing tracking tables (run log, model log, batch lineage)
+# ✅ Automated logging via hooks
+# ✅ Enhanced telemetry and row count tracking
+# ═══════════════════════════════════════════════════════════════════════════════
+
+name: 'dbt_o2c_enhanced'
+version: '2.0.0'
+config-version: 2
+
+profile: 'snowflake_o2c_enhanced'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# HOOKS - Automated Processing Tracking
+# ═══════════════════════════════════════════════════════════════════════════════
+
+on-run-start:
+  - "{{ log_run_start() }}"
+
+on-run-end:
+  - "{{ log_run_end() }}"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# VARIABLES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+vars:
+  # Audit configuration
+  enable_audit_logging: true
+  audit_schema: 'O2C_AUDIT'
+  
+  # Data reload variables
+  reload_source: 'ALL'           # Source system to reload (ALL, BRP, CIP, etc.)
+  reload_days: 3                 # Days to reload for delete+insert pattern
+  
+  # Telemetry
+  enable_row_count_tracking: true
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MODEL CONFIGURATIONS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+models:
+  dbt_o2c_enhanced:
+    # Enable persist_docs for all models
+    +persist_docs:
+      relation: true
+      columns: true
+    
+    # Default post-hook for audit logging
+    +post-hook:
+      - "{{ log_model_execution() }}"
+    
+    # ═══════════════════════════════════════════════════════════════
+    # STAGING LAYER (Protected - accessible within project)
+    # ═══════════════════════════════════════════════════════════════
+    staging:
+      +materialized: view
+      +schema: o2c_enhanced_staging
+      +tags: ['o2c_enhanced', 'staging']
+      +access: protected
+      +docs:
+        node_color: "#4CAF50"     # Green for staging
+    
+    # ═══════════════════════════════════════════════════════════════
+    # MARTS LAYER
+    # ═══════════════════════════════════════════════════════════════
+    marts:
+      
+      # Dimensions - Truncate & Load Pattern
+      dimensions:
+        +materialized: table      # Full refresh every run
+        +schema: o2c_enhanced_dimensions
+        +tags: ['o2c_enhanced', 'dimension', 'truncate_load']
+        +access: public
+        +contract:
+          enforced: true
+        +docs:
+          node_color: "#2196F3"   # Blue for dimensions
+      
+      # Core Facts - Merge (Upsert) Pattern
+      core:
+        +materialized: incremental
+        +schema: o2c_enhanced_core
+        +tags: ['o2c_enhanced', 'mart', 'core', 'merge']
+        +access: public
+        +docs:
+          node_color: "#9C27B0"   # Purple for core marts
+      
+      # Aggregates - Table (can be incremental or table)
+      aggregates:
+        +materialized: table
+        +schema: o2c_enhanced_aggregates
+        +tags: ['o2c_enhanced', 'mart', 'aggregate']
+        +access: public
+        +docs:
+          node_color: "#E91E63"   # Pink for aggregates
+      
+      # Events/Audit - Append Only Pattern
+      events:
+        +materialized: incremental
+        +schema: o2c_enhanced_events
+        +tags: ['o2c_enhanced', 'events', 'append_only']
+        +access: public
+        +docs:
+          node_color: "#FF9800"   # Orange for events
+      
+      # Partitioned Facts - Delete+Insert Pattern
+      partitioned:
+        +materialized: incremental
+        +schema: o2c_enhanced_partitioned
+        +tags: ['o2c_enhanced', 'partitioned', 'delete_insert']
+        +access: public
+        +docs:
+          node_color: "#607D8B"   # Gray for partitioned
+
+
