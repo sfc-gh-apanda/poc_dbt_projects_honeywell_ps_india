@@ -65,7 +65,9 @@ SELECT
     END AS payment_behavior,
     
     -- Audit columns
-    {{ audit_columns() }}
+    '{{ invocation_id }}' AS dbt_run_id,
+    MD5('{{ invocation_id }}' || '{{ this.name }}') AS dbt_batch_id,
+    CURRENT_TIMESTAMP()::TIMESTAMP_NTZ AS dbt_loaded_at
 
 FROM customer_metrics cm
 

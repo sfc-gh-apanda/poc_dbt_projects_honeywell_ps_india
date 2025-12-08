@@ -16,17 +16,6 @@ Description:
   - Uses INSERT INTO ... SELECT
   - Ideal for immutable event logs and audit trails
 
-When to Use:
-  ✅ Event logs / audit trails
-  ✅ Transaction history (never changes)
-  ✅ Append-only data lakes
-  ✅ When updates are prohibited by design
-
-How It Works:
-  INSERT INTO target
-  SELECT * FROM source
-  WHERE source.timestamp > max(target.timestamp)
-
 Testing This Pattern:
   1. First run: dbt run --select fact_o2c_events (creates table)
   2. Add new source events
@@ -34,15 +23,13 @@ Testing This Pattern:
   4. Verify:
      - New events are appended
      - Old events are unchanged
-     - No UPDATE statements in Query History
 
 ═══════════════════════════════════════════════════════════════════════════════
 #}
 
 WITH order_events AS (
-    -- Generate events from orders
     SELECT
-        {{ hash_key(['source_system', 'order_id', "'ORDER_CREATED'"]) }} AS event_id,
+        MD5(source_system || '|' || order_id || '|ORDER_CREATED') AS event_id,
         'ORDER_CREATED' AS event_type,
         source_system,
         order_id AS entity_id,
@@ -52,33 +39,29 @@ WITH order_events AS (
         customer_id,
         customer_name,
         order_status AS event_status,
-        created_by AS event_user,
         'Order created: ' || order_id AS event_description
     FROM {{ ref('stg_enriched_orders') }}
 ),
 
 invoice_events AS (
-    -- Generate events from invoices
     SELECT
-        {{ hash_key(['source_system', 'invoice_id', "'INVOICE_CREATED'"]) }} AS event_id,
+        MD5(source_system || '|' || invoice_id || '|INVOICE_CREATED') AS event_id,
         'INVOICE_CREATED' AS event_type,
         source_system,
         invoice_id AS entity_id,
         'INVOICE' AS entity_type,
         invoice_date AS event_timestamp,
         invoice_amount AS event_amount,
-        customer_id,
+        NULL AS customer_id,
         NULL AS customer_name,
         invoice_status AS event_status,
-        created_by AS event_user,
         'Invoice created: ' || invoice_id || ' for order: ' || order_id AS event_description
     FROM {{ ref('stg_enriched_invoices') }}
 ),
 
 payment_events AS (
-    -- Generate events from payments
     SELECT
-        {{ hash_key(['source_system', 'payment_id', "'PAYMENT_RECEIVED'"]) }} AS event_id,
+        MD5(source_system || '|' || payment_id || '|PAYMENT_RECEIVED') AS event_id,
         'PAYMENT_RECEIVED' AS event_type,
         source_system,
         payment_id AS entity_id,
@@ -88,8 +71,7 @@ payment_events AS (
         NULL AS customer_id,
         NULL AS customer_name,
         payment_status AS event_status,
-        created_by AS event_user,
-        'Payment received: ' || payment_id || ' via ' || bank_name AS event_description
+        'Payment received: ' || payment_id || ' via ' || COALESCE(bank_name, 'Unknown') AS event_description
     FROM {{ ref('stg_enriched_payments') }}
 ),
 
@@ -112,11 +94,12 @@ SELECT
     e.customer_id,
     e.customer_name,
     e.event_status,
-    e.event_user,
     e.event_description,
     
-    -- Full audit columns (dbt_created_at is the only timestamp needed for append-only)
-    {{ audit_columns() }}
+    -- Audit columns
+    '{{ invocation_id }}' AS dbt_run_id,
+    MD5('{{ invocation_id }}' || '{{ this.name }}') AS dbt_batch_id,
+    CURRENT_TIMESTAMP()::TIMESTAMP_NTZ AS dbt_loaded_at
 
 FROM all_events e
 
@@ -127,5 +110,3 @@ WHERE e.event_timestamp > (
     FROM {{ this }}
 )
 {% endif %}
-
-

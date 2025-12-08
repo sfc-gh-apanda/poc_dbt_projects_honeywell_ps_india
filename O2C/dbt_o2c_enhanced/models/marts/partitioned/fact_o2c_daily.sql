@@ -20,16 +20,6 @@ Description:
   - Ideal for partition-based reloads
   - Handles late-arriving data and corrections
 
-When to Use:
-  ✅ Date-partitioned fact tables
-  ✅ When you need to reload specific partitions (e.g., last 3 days)
-  ✅ Late-arriving data scenarios
-  ✅ Data corrections/restatements
-
-How It Works:
-  1. DELETE FROM target WHERE order_date >= (TODAY - 3 days)
-  2. INSERT INTO target SELECT * FROM source WHERE order_date >= (TODAY - 3 days)
-
 Configuration:
   - var('reload_days'): Number of days to reload (default: 3)
   - Run with: dbt run --select fact_o2c_daily --vars '{"reload_days": 7}'
@@ -42,7 +32,6 @@ Testing This Pattern:
   5. Verify:
      - Records older than 3 days: UNCHANGED
      - Records within 3 days: DELETED and RE-INSERTED
-     - All records within window have current dbt_loaded_at
 
 ═══════════════════════════════════════════════════════════════════════════════
 #}
@@ -57,7 +46,7 @@ WITH daily_orders AS (
         customer_id,
         customer_name,
         order_amount,
-        currency_code,
+        order_currency,
         order_status
     FROM {{ ref('stg_enriched_orders') }}
     
@@ -71,7 +60,7 @@ daily_invoices AS (
         invoice_key,
         invoice_date,
         invoice_amount,
-        due_date
+        calculated_due_date AS due_date
     FROM {{ ref('stg_enriched_invoices') }}
     WHERE invoice_date >= DATEADD('day', -{{ var('reload_days', 3) }}, CURRENT_DATE())
 ),
@@ -102,7 +91,7 @@ SELECT
     o.customer_id,
     o.customer_name,
     o.order_amount,
-    o.currency_code,
+    o.order_currency,
     o.order_status,
     
     -- Invoice details
@@ -114,7 +103,7 @@ SELECT
     p.payment_date,
     p.payment_amount,
     
-    -- Daily aggregates
+    -- Daily status
     CASE
         WHEN i.invoice_key IS NOT NULL THEN 'INVOICED'
         ELSE 'NOT_INVOICED'
@@ -125,11 +114,11 @@ SELECT
         ELSE 'UNPAID'
     END AS payment_status,
     
-    -- Full audit columns (since we're always inserting fresh)
-    {{ audit_columns() }}
+    -- Audit columns
+    '{{ invocation_id }}' AS dbt_run_id,
+    MD5('{{ invocation_id }}' || '{{ this.name }}') AS dbt_batch_id,
+    CURRENT_TIMESTAMP()::TIMESTAMP_NTZ AS dbt_loaded_at
 
 FROM daily_orders o
 LEFT JOIN daily_invoices i ON o.order_key = i.order_key
 LEFT JOIN daily_payments p ON i.invoice_key = p.invoice_key
-
-

@@ -24,16 +24,6 @@ Description:
   - Insert fresh data via append strategy
   - Ideal for source-system-specific reloads
 
-When to Use:
-  ✅ Reloading data from a specific source system
-  ✅ Selective partition/subset refresh
-  ✅ When delete criteria is complex
-  ✅ Multi-source consolidation with source-specific refresh
-
-How It Works:
-  1. PRE-HOOK: DELETE FROM target WHERE source_system = 'BRP'
-  2. INSERT: Append data filtered to source_system = 'BRP'
-
 Configuration:
   - var('reload_source'): Source system to reload (default: 'ALL')
   - Run with: dbt run --select fact_o2c_by_source --vars '{"reload_source": "BRP"}'
@@ -44,7 +34,6 @@ Testing This Pattern:
   3. Verify:
      - BRP records: Deleted and re-inserted (new dbt_loaded_at)
      - Other sources: UNCHANGED
-  4. Run again with different source: --vars '{"reload_source": "CIP"}'
 
 ═══════════════════════════════════════════════════════════════════════════════
 #}
@@ -58,7 +47,7 @@ WITH source_data AS (
         customer_id,
         customer_name,
         order_amount,
-        currency_code,
+        order_currency,
         order_status
     FROM {{ ref('stg_enriched_orders') }}
     
@@ -76,11 +65,13 @@ SELECT
     s.customer_id,
     s.customer_name,
     s.order_amount,
-    s.currency_code,
+    s.order_currency,
     s.order_status,
     
-    -- Full audit columns
-    {{ audit_columns() }}
+    -- Audit columns
+    '{{ invocation_id }}' AS dbt_run_id,
+    MD5('{{ invocation_id }}' || '{{ this.name }}') AS dbt_batch_id,
+    CURRENT_TIMESTAMP()::TIMESTAMP_NTZ AS dbt_loaded_at
 
 FROM source_data s
 
@@ -92,5 +83,3 @@ WHERE NOT EXISTS (
       AND t.source_system = s.source_system
 )
 {% endif %}
-
-

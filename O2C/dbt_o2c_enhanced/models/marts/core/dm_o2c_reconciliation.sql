@@ -24,18 +24,6 @@ Description:
   - Uses MERGE INTO statement in Snowflake
   - Preserves create timestamp, updates last modified
 
-When to Use:
-  ✅ Fact tables with updates (status changes, corrections)
-  ✅ When you need both INSERT and UPDATE
-  ✅ SCD Type 1 updates (overwrite with latest)
-  ✅ When source has reliable change tracking
-
-How It Works:
-  MERGE INTO target
-  USING source ON key_match
-  WHEN MATCHED THEN UPDATE SET columns...
-  WHEN NOT MATCHED THEN INSERT (columns...) VALUES (...)
-
 Testing This Pattern:
   1. First run: dbt run --select dm_o2c_reconciliation (creates table)
   2. Modify source data or wait for new data
@@ -43,123 +31,113 @@ Testing This Pattern:
   4. Verify:
      - New records have current dbt_created_at
      - Updated records have original dbt_created_at, new dbt_updated_at
-     - dbt_row_hash changes for modified records
 
 ═══════════════════════════════════════════════════════════════════════════════
 #}
 
-WITH orders AS (
-    SELECT * FROM {{ ref('stg_enriched_orders') }}
-),
-
-invoices AS (
-    SELECT * FROM {{ ref('stg_enriched_invoices') }}
-),
-
-payments AS (
-    SELECT * FROM {{ ref('stg_enriched_payments') }}
-),
-
--- Join all three staging models
-reconciliation AS (
-    SELECT
-        -- Keys
-        o.source_system,
-        o.order_key,
-        COALESCE(i.invoice_key, 'NOT_INVOICED') AS invoice_key,
-        COALESCE(p.payment_key, 'NOT_PAID') AS payment_key,
-        
-        -- Generate composite key for merge
-        {{ hash_key(['o.order_key', "COALESCE(i.invoice_key, 'NOT_INVOICED')", "COALESCE(p.payment_key, 'NOT_PAID')"], 'reconciliation_key') }},
-        
-        -- Order data
-        o.order_id,
-        o.order_line,
-        o.order_date,
-        o.order_amount,
-        o.currency_code,
-        
-        -- Customer data (from staging enrichment)
-        o.customer_id,
-        o.customer_name,
-        o.customer_type,
-        o.customer_country,
-        
-        -- Invoice data
-        i.invoice_id,
-        i.invoice_line,
-        i.invoice_date,
-        i.invoice_amount,
-        i.payment_terms_code,
-        i.payment_terms_name,
-        i.payment_terms_days,
-        i.calculated_due_date AS due_date,
-        
-        -- Payment data
-        p.payment_id,
-        p.payment_date,
-        p.payment_amount,
-        p.bank_name,
-        p.bank_country,
-        
-        -- Calculated metrics
-        DATEDIFF('day', o.order_date, i.invoice_date) AS days_order_to_invoice,
-        DATEDIFF('day', i.invoice_date, p.payment_date) AS days_invoice_to_payment,
-        DATEDIFF('day', o.order_date, p.payment_date) AS days_order_to_cash,
-        DATEDIFF('day', i.calculated_due_date, CURRENT_DATE()) AS days_past_due,
-        
-        -- Amounts
-        CASE WHEN i.invoice_key IS NULL THEN o.order_amount ELSE 0 END AS unbilled_amount,
-        CASE WHEN p.payment_key IS NULL AND i.invoice_key IS NOT NULL 
-             THEN i.invoice_amount ELSE 0 END AS outstanding_amount,
-        
-        -- Status
-        CASE
-            WHEN i.invoice_key IS NULL THEN 'NOT_INVOICED'
-            WHEN p.payment_key IS NULL THEN 'NOT_PAID'
-            WHEN p.payment_amount < i.invoice_amount THEN 'OPEN'
-            ELSE 'CLOSED'
-        END AS reconciliation_status,
-        
-        -- Payment timing
-        CASE
-            WHEN p.payment_date IS NULL AND i.calculated_due_date < CURRENT_DATE() THEN 'OVERDUE'
-            WHEN p.payment_date IS NULL THEN 'CURRENT'
-            WHEN p.payment_date <= i.calculated_due_date THEN 'ON_TIME'
-            ELSE 'LATE'
-        END AS payment_timing
-        
-    FROM orders o
-    LEFT JOIN invoices i
-        ON o.order_key = i.order_key
-    LEFT JOIN payments p
-        ON i.invoice_key = p.invoice_key
-)
-
 SELECT
-    r.*,
+    -- Keys
+    orders.source_system,
+    orders.order_key,
+    COALESCE(inv.invoice_key, 'NOT_INVOICED') AS invoice_key,
+    COALESCE(pay.payment_key, 'NOT_PAID') AS payment_key,
+    
+    -- Composite key for merge
+    MD5(orders.order_key || '|' || COALESCE(inv.invoice_key, 'NOT_INVOICED') || '|' || COALESCE(pay.payment_key, 'NOT_PAID')) AS reconciliation_key,
+    
+    -- Order Information
+    orders.order_id,
+    orders.order_line,
+    orders.order_number,
+    orders.order_date,
+    orders.order_quantity,
+    orders.order_amount,
+    orders.order_currency,
+    orders.order_status,
+    
+    -- Customer (from staging enrichment)
+    orders.customer_id,
+    orders.customer_name,
+    orders.customer_type,
+    orders.customer_country,
+    
+    -- Invoice Information
+    inv.invoice_id,
+    inv.invoice_number,
+    inv.invoice_date,
+    inv.invoice_amount,
+    inv.invoice_status,
+    
+    -- Payment terms (from staging enrichment)
+    inv.payment_terms_code,
+    inv.payment_terms_name,
+    inv.payment_terms_days,
+    inv.calculated_due_date AS due_date,
+    
+    -- Payment Information
+    pay.payment_id,
+    pay.payment_reference,
+    pay.payment_date,
+    pay.payment_amount,
+    pay.payment_status,
+    pay.cleared_flag,
+    
+    -- Bank (from staging enrichment)
+    pay.bank_name,
+    pay.bank_country,
+    
+    -- Calculated Metrics
+    DATEDIFF('day', orders.order_date, inv.invoice_date) AS days_order_to_invoice,
+    DATEDIFF('day', inv.invoice_date, pay.payment_date) AS days_invoice_to_payment,
+    DATEDIFF('day', orders.order_date, pay.payment_date) AS days_order_to_cash,
+    DATEDIFF('day', inv.calculated_due_date, COALESCE(pay.payment_date, CURRENT_DATE())) AS days_past_due,
+    
+    -- Reconciliation amounts
+    (orders.order_amount - COALESCE(inv.invoice_amount, 0)) AS unbilled_amount,
+    (COALESCE(inv.invoice_amount, 0) - COALESCE(pay.payment_amount, 0)) AS outstanding_amount,
+    
+    -- Status
+    CASE
+        WHEN inv.invoice_id IS NULL THEN 'NOT_INVOICED'
+        WHEN pay.payment_id IS NULL THEN 'NOT_PAID'
+        WHEN pay.cleared_flag = TRUE THEN 'CLOSED'
+        ELSE 'OPEN'
+    END AS reconciliation_status,
+    
+    CASE
+        WHEN pay.payment_date IS NULL AND inv.calculated_due_date < CURRENT_DATE() THEN 'OVERDUE'
+        WHEN pay.payment_date IS NULL THEN 'CURRENT'
+        WHEN pay.payment_date <= inv.calculated_due_date THEN 'ON_TIME'
+        ELSE 'LATE'
+    END AS payment_timing,
     
     -- Row hash for change detection
-    {{ row_hash([
-        'r.invoice_key', 'r.payment_key', 'r.invoice_amount', 'r.payment_amount',
-        'r.reconciliation_status', 'r.payment_timing'
-    ]) }},
+    MD5(
+        COALESCE(inv.invoice_key, 'NOT_INVOICED') || '|' ||
+        COALESCE(pay.payment_key, 'NOT_PAID') || '|' ||
+        COALESCE(CAST(inv.invoice_amount AS VARCHAR), '') || '|' ||
+        COALESCE(CAST(pay.payment_amount AS VARCHAR), '')
+    ) AS dbt_row_hash,
     
-    -- Incremental audit columns (preserve create_ts)
-    {{ audit_columns_incremental() }}
+    -- Audit columns
+    '{{ invocation_id }}' AS dbt_run_id,
+    MD5('{{ invocation_id }}' || '{{ this.name }}') AS dbt_batch_id,
+    {% if is_incremental() %}
+    COALESCE(existing.dbt_created_at, CURRENT_TIMESTAMP()::TIMESTAMP_NTZ) AS dbt_created_at,
+    {% else %}
+    CURRENT_TIMESTAMP()::TIMESTAMP_NTZ AS dbt_created_at,
+    {% endif %}
+    CURRENT_TIMESTAMP()::TIMESTAMP_NTZ AS dbt_updated_at
 
-FROM reconciliation r
+FROM {{ ref('stg_enriched_orders') }} orders
+
+LEFT JOIN {{ ref('stg_enriched_invoices') }} inv
+    ON orders.order_key = inv.order_key
+
+LEFT JOIN {{ ref('stg_enriched_payments') }} pay
+    ON inv.invoice_key = pay.invoice_key
 
 {% if is_incremental() %}
-LEFT JOIN {{ this }} t ON r.reconciliation_key = t.reconciliation_key
-WHERE 
-    -- New records
-    t.reconciliation_key IS NULL
-    -- Or changed records (compare row hash)
-    OR t.dbt_row_hash != {{ row_hash([
-        'r.invoice_key', 'r.payment_key', 'r.invoice_amount', 'r.payment_amount',
-        'r.reconciliation_status', 'r.payment_timing'
-    ], 'new_hash') }}
+LEFT JOIN {{ this }} existing 
+    ON MD5(orders.order_key || '|' || COALESCE(inv.invoice_key, 'NOT_INVOICED') || '|' || COALESCE(pay.payment_key, 'NOT_PAID')) = existing.reconciliation_key
 {% endif %}
-
-
