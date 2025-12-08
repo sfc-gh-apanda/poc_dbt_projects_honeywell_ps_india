@@ -1,7 +1,7 @@
 {{
     config(
         materialized='table',
-        pre_hook="USE WAREHOUSE HONEYWELL_POC",
+        snowflake_warehouse=get_warehouse(),
         tags=['dimension', 'truncate_load', 'pattern_example']
     )
 }}
