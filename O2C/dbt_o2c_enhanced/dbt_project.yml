@@ -93,8 +93,6 @@ models:
         +schema: dimensions
         +tags: ['o2c_enhanced', 'dimension', 'truncate_load']
         +access: public
-        +contract:
-          enforced: true
         +docs:
           node_color: "#2196F3"   # Blue for dimensions
       
