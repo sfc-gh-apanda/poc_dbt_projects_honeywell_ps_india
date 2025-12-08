@@ -16,23 +16,11 @@
         5. DEFAULT level    → Global default row
         6. profiles.yml     → Ultimate fallback (target.warehouse)
 
-    Usage:
-        In model config:
-            {{ config(snowflake_warehouse=get_warehouse()) }}
-
     Configuration Table:
         EDW.CONFIG.DBT_WAREHOUSE_CONFIG
-        - config_scope: 'MODEL', 'LAYER', 'PROJECT', 'ENVIRONMENT', 'DEFAULT'
-        - scope_name: The identifier
-        - warehouse_name: Target warehouse
-        - priority: Lower = higher priority
-        - is_active: Boolean flag
 
-    Benefits:
-        - No code changes to modify warehouse
-        - Just UPDATE the config table
-        - Built-in audit trail
-        - Always has fallback (never fails)
+    IMPORTANT: This macro only works during EXECUTION phase (dbt run/build).
+    During parsing, it returns the profiles.yml fallback warehouse.
 
 ================================================================================
 -#}
@@ -42,60 +30,47 @@
     {% set layer_name = this.fqn[1] if (this and this.fqn | length > 1) else 'unknown' %}
     {% set project_name = this.package_name if this else 'unknown' %}
     {% set environment = target.name %}
+    {% set fallback_warehouse = target.warehouse %}
     
-    {#- Only execute queries during run phase, not parse phase -#}
+    {#- During execution phase, query the config table -#}
     {% if execute %}
         
-        {#- Build query to get warehouse from config table with priority ordering -#}
         {% set lookup_query %}
             SELECT warehouse_name
             FROM EDW.CONFIG.DBT_WAREHOUSE_CONFIG
             WHERE is_active = TRUE
               AND (effective_to IS NULL OR effective_to >= CURRENT_DATE())
               AND scope_name IN (
-                  '{{ model_name }}',       -- Level 1: Exact model
-                  '{{ layer_name }}',       -- Level 2: Layer (staging, marts)
-                  '{{ project_name }}',     -- Level 3: Project (dbt_o2c_enhanced)
-                  '{{ environment }}',      -- Level 4: Environment (dev, prod)
-                  'DEFAULT'                 -- Level 5: Global default
+                  '{{ model_name }}',
+                  '{{ layer_name }}',
+                  '{{ project_name }}',
+                  '{{ environment }}',
+                  'DEFAULT'
               )
-            ORDER BY priority ASC           -- Lower priority number = higher precedence
+            ORDER BY priority ASC
             LIMIT 1
         {% endset %}
         
-        {#- Execute the lookup query -#}
         {% set results = run_query(lookup_query) %}
         
-        {#- If found in config table, return that warehouse -#}
         {% if results and results.rows | length > 0 %}
             {% set warehouse_from_config = results.rows[0][0] %}
-            {{ log("🏭 Warehouse for '" ~ model_name ~ "': " ~ warehouse_from_config ~ " (from config table)", info=False) }}
+            {{ log("🏭 [" ~ model_name ~ "] Using warehouse: " ~ warehouse_from_config ~ " (from config table)", info=True) }}
             {{ return(warehouse_from_config) }}
+        {% else %}
+            {{ log("🏭 [" ~ model_name ~ "] No config found, using: " ~ fallback_warehouse ~ " (from profiles.yml)", info=True) }}
         {% endif %}
         
     {% endif %}
     
-    {#- ═══════════════════════════════════════════════════════════════════ -#}
-    {#- ULTIMATE FALLBACK: profiles.yml warehouse                           -#}
-    {#- This ALWAYS exists, so dbt will NEVER fail due to missing config   -#}
-    {#- ═══════════════════════════════════════════════════════════════════ -#}
-    
-    {% set fallback_warehouse = target.warehouse %}
-    {{ log("🏭 Warehouse for '" ~ model_name ~ "': " ~ fallback_warehouse ~ " (fallback to profiles.yml)", info=False) }}
+    {#- Fallback to profiles.yml -#}
     {{ return(fallback_warehouse) }}
     
 {% endmacro %}
 
 
 {% macro get_warehouse_for_model(model_name) %}
-{#-
-    Alternative macro that accepts model name as parameter.
-    Useful when you need to look up warehouse for a specific model.
-    
-    Usage:
-        {{ get_warehouse_for_model('dm_o2c_reconciliation') }}
--#}
-
+{#- Alternative macro that accepts model name as parameter. -#}
     {% if execute %}
         {% set lookup_query %}
             SELECT warehouse_name
@@ -112,20 +87,12 @@
         {% endif %}
     {% endif %}
     
-    {#- Fallback to profiles.yml -#}
     {{ return(target.warehouse) }}
-    
 {% endmacro %}
 
 
 {% macro log_warehouse_resolution() %}
-{#-
-    Debug macro to see how warehouse would be resolved for current model.
-    
-    Usage in a model:
-        {{ log_warehouse_resolution() }}
--#}
-
+{#- Debug macro to see warehouse resolution. -#}
     {% set model_name = this.name if this else 'UNKNOWN' %}
     {% set layer_name = this.fqn[1] if (this and this.fqn | length > 1) else 'unknown' %}
     {% set project_name = this.package_name if this else 'unknown' %}
@@ -133,13 +100,10 @@
     
     {{ log("═══════════════════════════════════════════════════════════", info=True) }}
     {{ log("WAREHOUSE RESOLUTION DEBUG", info=True) }}
-    {{ log("═══════════════════════════════════════════════════════════", info=True) }}
     {{ log("Model:       " ~ model_name, info=True) }}
     {{ log("Layer:       " ~ layer_name, info=True) }}
     {{ log("Project:     " ~ project_name, info=True) }}
     {{ log("Environment: " ~ environment, info=True) }}
     {{ log("Resolved:    " ~ get_warehouse(), info=True) }}
     {{ log("═══════════════════════════════════════════════════════════", info=True) }}
-    
 {% endmacro %}
-
