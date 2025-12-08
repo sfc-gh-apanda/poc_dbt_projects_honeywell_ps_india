@@ -2,8 +2,6 @@
     config(
         materialized='table',
         tags=['dimension', 'truncate_load', 'pattern_example']
-        -- Contract disabled for compatibility with Snowflake Native dbt
-        -- contract={'enforced': true}
     )
 }}
 
