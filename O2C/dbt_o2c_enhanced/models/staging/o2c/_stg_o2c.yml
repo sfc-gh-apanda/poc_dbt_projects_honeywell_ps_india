@@ -1,20 +1,28 @@
 version: 2
 
 models:
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # STAGING LAYER - Views with Customer/Invoice/Payment Enrichment
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # Pattern: VIEW (always current, no materialization)
+  # Audit: Full 7-column audit set (uniform across all layers)
+  # ═══════════════════════════════════════════════════════════════════════════════
+
   - name: stg_enriched_orders
     description: |
       **Orders with Customer Enrichment**
       
       Joins FACT_SALES_ORDERS with DIM_CUSTOMER.
-      Includes audit columns for tracking.
       
       **Pattern:** VIEW (always current)
+      **Audit:** 7 columns (dbt_run_id, dbt_batch_id, dbt_loaded_at, dbt_created_at, dbt_updated_at, dbt_source_model, dbt_environment)
     access: protected
     config:
       tags: ['staging', 'orders']
     columns:
+      # Business Keys
       - name: order_key
-        description: "Surrogate key (MD5 hash)"
+        description: "Surrogate key (source_system|order_id|order_line)"
         tests:
           - not_null
       - name: source_system
@@ -25,6 +33,64 @@ models:
         description: "Order ID"
         tests:
           - not_null
+      - name: order_line
+        description: "Order line number"
+      
+      # Order Details
+      - name: order_number
+        description: "Order number"
+      - name: order_date
+        description: "Order date"
+      - name: order_quantity
+        description: "Order quantity"
+      - name: order_amount
+        description: "Order amount (local currency)"
+      - name: order_currency
+        description: "Order currency code"
+      - name: order_status
+        description: "Order status"
+      
+      # Customer (Enriched)
+      - name: customer_id
+        description: "Customer ID"
+      - name: customer_name
+        description: "Customer name (from DIM_CUSTOMER)"
+      - name: customer_type
+        description: "Customer type (E=External, I=Internal)"
+      - name: customer_country
+        description: "Customer country code"
+      - name: customer_country_name
+        description: "Customer country name"
+      
+      # Audit Columns (7 uniform columns)
+      - name: dbt_run_id
+        description: "dbt invocation ID"
+        tests:
+          - not_null
+      - name: dbt_batch_id
+        description: "Batch ID (unique per model per run)"
+        tests:
+          - not_null
+      - name: dbt_loaded_at
+        description: "Load timestamp"
+        tests:
+          - not_null
+      - name: dbt_created_at
+        description: "Record creation timestamp (= dbt_updated_at for views)"
+        tests:
+          - not_null
+      - name: dbt_updated_at
+        description: "Record update timestamp"
+        tests:
+          - not_null
+      - name: dbt_source_model
+        description: "Model name that created this record"
+        tests:
+          - not_null
+      - name: dbt_environment
+        description: "Target environment (dev/prod)"
+        tests:
+          - not_null
 
   - name: stg_enriched_invoices
     description: |
@@ -32,17 +98,77 @@ models:
       
       Joins FACT_INVOICES with DIM_PAYMENT_TERMS.
       
-      **Pattern:** VIEW
+      **Pattern:** VIEW (always current)
+      **Audit:** 7 columns (uniform set)
     access: protected
     config:
       tags: ['staging', 'invoices']
     columns:
+      # Business Keys
       - name: invoice_key
-        description: "Surrogate key"
+        description: "Surrogate key (source_system|invoice_id|invoice_line)"
         tests:
           - not_null
       - name: order_key
         description: "Related order key"
+        tests:
+          - not_null
+      - name: source_system
+        description: "Source ERP system"
+        tests:
+          - not_null
+      - name: invoice_id
+        description: "Invoice ID"
+        tests:
+          - not_null
+      
+      # Invoice Details
+      - name: invoice_number
+        description: "Invoice number"
+      - name: invoice_date
+        description: "Invoice date"
+      - name: invoice_amount
+        description: "Invoice amount (local currency)"
+      - name: invoice_status
+        description: "Invoice status"
+      
+      # Payment Terms (Enriched)
+      - name: payment_terms_code
+        description: "Payment terms code"
+      - name: payment_terms_name
+        description: "Payment terms name (from DIM_PAYMENT_TERMS)"
+      - name: payment_terms_days
+        description: "Payment terms days"
+      - name: calculated_due_date
+        description: "Calculated due date"
+      
+      # Audit Columns (7 uniform columns)
+      - name: dbt_run_id
+        description: "dbt invocation ID"
+        tests:
+          - not_null
+      - name: dbt_batch_id
+        description: "Batch ID (unique per model per run)"
+        tests:
+          - not_null
+      - name: dbt_loaded_at
+        description: "Load timestamp"
+        tests:
+          - not_null
+      - name: dbt_created_at
+        description: "Record creation timestamp"
+        tests:
+          - not_null
+      - name: dbt_updated_at
+        description: "Record update timestamp"
+        tests:
+          - not_null
+      - name: dbt_source_model
+        description: "Model name that created this record"
+        tests:
+          - not_null
+      - name: dbt_environment
+        description: "Target environment (dev/prod)"
         tests:
           - not_null
 
@@ -52,18 +178,78 @@ models:
       
       Joins FACT_PAYMENTS with DIM_BANK_ACCOUNT.
       
-      **Pattern:** VIEW
+      **Pattern:** VIEW (always current)
+      **Audit:** 7 columns (uniform set)
     access: protected
     config:
       tags: ['staging', 'payments']
     columns:
+      # Business Keys
       - name: payment_key
-        description: "Surrogate key"
+        description: "Surrogate key (source_system|payment_id)"
         tests:
           - not_null
       - name: invoice_key
         description: "Related invoice key"
         tests:
           - not_null
-
-
+      - name: source_system
+        description: "Source ERP system"
+        tests:
+          - not_null
+      - name: payment_id
+        description: "Payment ID"
+        tests:
+          - not_null
+      
+      # Payment Details
+      - name: payment_reference
+        description: "Payment reference"
+      - name: payment_date
+        description: "Payment date"
+      - name: payment_amount
+        description: "Payment amount (local currency)"
+      - name: payment_status
+        description: "Payment status"
+      - name: cleared_flag
+        description: "Payment cleared flag"
+      
+      # Bank (Enriched)
+      - name: bank_account_id
+        description: "Bank account ID"
+      - name: bank_name
+        description: "Bank name (from DIM_BANK_ACCOUNT)"
+      - name: bank_country
+        description: "Bank country"
+      - name: bank_account_type
+        description: "Bank account type"
+      
+      # Audit Columns (7 uniform columns)
+      - name: dbt_run_id
+        description: "dbt invocation ID"
+        tests:
+          - not_null
+      - name: dbt_batch_id
+        description: "Batch ID (unique per model per run)"
+        tests:
+          - not_null
+      - name: dbt_loaded_at
+        description: "Load timestamp"
+        tests:
+          - not_null
+      - name: dbt_created_at
+        description: "Record creation timestamp"
+        tests:
+          - not_null
+      - name: dbt_updated_at
+        description: "Record update timestamp"
+        tests:
+          - not_null
+      - name: dbt_source_model
+        description: "Model name that created this record"
+        tests:
+          - not_null
+      - name: dbt_environment
+        description: "Target environment (dev/prod)"
+        tests:
+          - not_null

@@ -1,0 +1,202 @@
+version: 2
+
+models:
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # CORE LAYER - O2C Reconciliation (Merge/Upsert)
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # Pattern: INCREMENTAL with merge strategy
+  # Audit: Full 7-column audit set (dbt_created_at preserved for existing rows)
+  # ═══════════════════════════════════════════════════════════════════════════════
+
+  - name: dm_o2c_reconciliation
+    description: |
+      **Order-to-Cash Reconciliation Mart**
+      
+      **Data Load Pattern:** MERGE / UPSERT (incremental_strategy='merge')
+      
+      Joins orders, invoices, and payments into a complete O2C view.
+      - New records: INSERT with current dbt_created_at
+      - Existing records: UPDATE with original dbt_created_at preserved
+      
+      **Audit Columns (7 uniform):**
+      - dbt_run_id: dbt invocation ID (updated on every run)
+      - dbt_batch_id: Unique per model per run (updated on every run)
+      - dbt_loaded_at: Load timestamp (updated on every run)
+      - dbt_created_at: PRESERVED for existing rows, set for new rows
+      - dbt_updated_at: Always current timestamp
+      - dbt_source_model: Model name
+      - dbt_environment: Target environment (dev/prod)
+      - dbt_row_hash: Change detection hash (bonus column)
+    
+    access: public
+    
+    config:
+      tags: ['core', 'merge', 'upsert', 'pattern_example']
+    
+    columns:
+      # Keys
+      - name: reconciliation_key
+        description: "Composite key (MD5 of order_key + invoice_key + payment_key)"
+        tests:
+          - unique
+          - not_null
+      
+      - name: source_system
+        description: "Source ERP system"
+        tests:
+          - not_null
+      
+      - name: order_key
+        description: "Order surrogate key"
+        tests:
+          - not_null
+      
+      - name: invoice_key
+        description: "Invoice surrogate key (or 'NOT_INVOICED')"
+        tests:
+          - not_null
+      
+      - name: payment_key
+        description: "Payment surrogate key (or 'NOT_PAID')"
+        tests:
+          - not_null
+      
+      # Order Details
+      - name: order_id
+        description: "Order ID"
+      - name: order_line
+        description: "Order line number"
+      - name: order_number
+        description: "Order number"
+      - name: order_date
+        description: "Order date"
+      - name: order_quantity
+        description: "Order quantity"
+      - name: order_amount
+        description: "Order amount"
+      - name: order_currency
+        description: "Order currency"
+      - name: order_status
+        description: "Order status"
+      
+      # Customer (from staging enrichment)
+      - name: customer_id
+        description: "Customer ID"
+      - name: customer_name
+        description: "Customer name"
+      - name: customer_type
+        description: "Customer type"
+      - name: customer_country
+        description: "Customer country"
+      
+      # Invoice Details
+      - name: invoice_id
+        description: "Invoice ID"
+      - name: invoice_number
+        description: "Invoice number"
+      - name: invoice_date
+        description: "Invoice date"
+      - name: invoice_amount
+        description: "Invoice amount"
+      - name: invoice_status
+        description: "Invoice status"
+      
+      # Payment Terms
+      - name: payment_terms_code
+        description: "Payment terms code"
+      - name: payment_terms_name
+        description: "Payment terms name"
+      - name: payment_terms_days
+        description: "Payment terms days"
+      - name: due_date
+        description: "Calculated due date"
+      
+      # Payment Details
+      - name: payment_id
+        description: "Payment ID"
+      - name: payment_reference
+        description: "Payment reference"
+      - name: payment_date
+        description: "Payment date"
+      - name: payment_amount
+        description: "Payment amount"
+      - name: payment_status
+        description: "Payment status"
+      - name: cleared_flag
+        description: "Payment cleared flag"
+      
+      # Bank (from staging enrichment)
+      - name: bank_name
+        description: "Bank name"
+      - name: bank_country
+        description: "Bank country"
+      
+      # Calculated Metrics
+      - name: days_order_to_invoice
+        description: "Days from order to invoice"
+      - name: days_invoice_to_payment
+        description: "Days from invoice to payment"
+      - name: days_order_to_cash
+        description: "Days Sales Outstanding (DSO)"
+      - name: days_past_due
+        description: "Days past due date"
+      - name: unbilled_amount
+        description: "Order amount - Invoice amount"
+      - name: outstanding_amount
+        description: "Invoice amount - Payment amount"
+      
+      # Status
+      - name: reconciliation_status
+        description: "NOT_INVOICED, NOT_PAID, OPEN, CLOSED"
+        tests:
+          - accepted_values:
+              values: ['NOT_INVOICED', 'NOT_PAID', 'OPEN', 'CLOSED']
+      
+      - name: payment_timing
+        description: "OVERDUE, CURRENT, ON_TIME, LATE"
+        tests:
+          - accepted_values:
+              values: ['OVERDUE', 'CURRENT', 'ON_TIME', 'LATE']
+      
+      # Row Hash
+      - name: dbt_row_hash
+        description: "MD5 hash for change detection"
+        tests:
+          - not_null
+      
+      # Audit Columns (7 uniform columns)
+      - name: dbt_run_id
+        description: "dbt invocation ID"
+        tests:
+          - not_null
+      
+      - name: dbt_batch_id
+        description: "Batch ID (unique per model per run)"
+        tests:
+          - not_null
+      
+      - name: dbt_loaded_at
+        description: "Load timestamp"
+        tests:
+          - not_null
+      
+      - name: dbt_created_at
+        description: "Record creation timestamp (PRESERVED on updates)"
+        tests:
+          - not_null
+      
+      - name: dbt_updated_at
+        description: "Record update timestamp (always current)"
+        tests:
+          - not_null
+      
+      - name: dbt_source_model
+        description: "Model name that created this record"
+        tests:
+          - not_null
+      
+      - name: dbt_environment
+        description: "Target environment (dev/prod)"
+        tests:
+          - not_null
+

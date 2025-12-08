@@ -1,0 +1,249 @@
+version: 2
+
+models:
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # PARTITIONED LAYER - Date/Source Partitioned Facts
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # Patterns: DELETE+INSERT and PRE-HOOK DELETE
+  # Audit: Full 7-column audit set (dbt_created_at = dbt_updated_at for inserts)
+  # ═══════════════════════════════════════════════════════════════════════════════
+
+  - name: fact_o2c_daily
+    description: |
+      **Daily O2C Fact Table (Date Partitioned)**
+      
+      **Data Load Pattern:** DELETE + INSERT (incremental_strategy='delete+insert')
+      
+      Reloads data for a configurable date window (default: last 3 days).
+      Ideal for handling late-arriving data and corrections.
+      
+      **Configuration:**
+      - var('reload_days'): Number of days to reload (default: 3)
+      - Run with: `dbt run --select fact_o2c_daily --vars '{"reload_days": 7}'`
+      
+      **Audit Columns (7 uniform):**
+      - dbt_run_id: dbt invocation ID
+      - dbt_batch_id: Unique per model per run
+      - dbt_loaded_at: Load timestamp
+      - dbt_created_at: = dbt_updated_at (records are re-inserted, not updated)
+      - dbt_updated_at: Same as created
+      - dbt_source_model: Model name
+      - dbt_environment: Target environment (dev/prod)
+    
+    access: public
+    
+    config:
+      tags: ['partitioned', 'delete_insert', 'pattern_example']
+    
+    columns:
+      # Partition Key
+      - name: order_date
+        description: "Order date (partition key)"
+        tests:
+          - not_null
+      
+      # Keys
+      - name: source_system
+        description: "Source ERP system"
+        tests:
+          - not_null
+      
+      - name: order_key
+        description: "Order surrogate key"
+        tests:
+          - not_null
+      
+      - name: invoice_key
+        description: "Invoice surrogate key"
+      
+      - name: payment_key
+        description: "Payment surrogate key"
+      
+      # Order Details
+      - name: order_id
+        description: "Order ID"
+      
+      - name: order_line
+        description: "Order line number"
+      
+      - name: customer_id
+        description: "Customer ID"
+      
+      - name: customer_name
+        description: "Customer name"
+      
+      - name: order_amount
+        description: "Order amount"
+      
+      - name: order_currency
+        description: "Order currency"
+      
+      - name: order_status
+        description: "Order status"
+      
+      # Invoice Details
+      - name: invoice_date
+        description: "Invoice date"
+      
+      - name: invoice_amount
+        description: "Invoice amount"
+      
+      - name: due_date
+        description: "Payment due date"
+      
+      # Payment Details
+      - name: payment_date
+        description: "Payment date"
+      
+      - name: payment_amount
+        description: "Payment amount"
+      
+      # Status
+      - name: invoice_status
+        description: "INVOICED or NOT_INVOICED"
+        tests:
+          - accepted_values:
+              values: ['INVOICED', 'NOT_INVOICED']
+      
+      - name: payment_status
+        description: "PAID or UNPAID"
+        tests:
+          - accepted_values:
+              values: ['PAID', 'UNPAID']
+      
+      # Audit Columns (7 uniform columns)
+      - name: dbt_run_id
+        description: "dbt invocation ID"
+        tests:
+          - not_null
+      
+      - name: dbt_batch_id
+        description: "Batch ID (unique per model per run)"
+        tests:
+          - not_null
+      
+      - name: dbt_loaded_at
+        description: "Load timestamp"
+        tests:
+          - not_null
+      
+      - name: dbt_created_at
+        description: "Record creation timestamp (= dbt_updated_at for delete+insert)"
+        tests:
+          - not_null
+      
+      - name: dbt_updated_at
+        description: "Record update timestamp"
+        tests:
+          - not_null
+      
+      - name: dbt_source_model
+        description: "Model name that created this record"
+        tests:
+          - not_null
+      
+      - name: dbt_environment
+        description: "Target environment (dev/prod)"
+        tests:
+          - not_null
+
+  - name: fact_o2c_by_source
+    description: |
+      **Source System Partitioned Fact Table**
+      
+      **Data Load Pattern:** PRE-HOOK DELETE + APPEND
+      
+      Allows selective reload of specific source systems.
+      Pre-hook deletes target source, then appends fresh data.
+      
+      **Configuration:**
+      - var('reload_source'): Source system to reload (default: 'ALL')
+      - Run for specific source: `dbt run --select fact_o2c_by_source --vars '{"reload_source": "BRP"}'`
+      
+      **Audit Columns (7 uniform):**
+      - dbt_run_id: dbt invocation ID
+      - dbt_batch_id: Unique per model per run
+      - dbt_loaded_at: Load timestamp
+      - dbt_created_at: = dbt_updated_at (records are re-inserted)
+      - dbt_updated_at: Same as created
+      - dbt_source_model: Model name
+      - dbt_environment: Target environment (dev/prod)
+    
+    access: public
+    
+    config:
+      tags: ['partitioned', 'pre_hook_delete', 'source_reload', 'pattern_example']
+    
+    columns:
+      # Source Partition Key
+      - name: source_system
+        description: "Source ERP system (partition key)"
+        tests:
+          - not_null
+      
+      # Keys
+      - name: order_key
+        description: "Order surrogate key"
+        tests:
+          - not_null
+      
+      - name: order_id
+        description: "Order ID"
+        tests:
+          - not_null
+      
+      # Order Details
+      - name: order_date
+        description: "Order date"
+      
+      - name: customer_id
+        description: "Customer ID"
+      
+      - name: customer_name
+        description: "Customer name"
+      
+      - name: order_amount
+        description: "Order amount"
+      
+      - name: order_currency
+        description: "Order currency"
+      
+      - name: order_status
+        description: "Order status"
+      
+      # Audit Columns (7 uniform columns)
+      - name: dbt_run_id
+        description: "dbt invocation ID"
+        tests:
+          - not_null
+      
+      - name: dbt_batch_id
+        description: "Batch ID (unique per model per run)"
+        tests:
+          - not_null
+      
+      - name: dbt_loaded_at
+        description: "Load timestamp"
+        tests:
+          - not_null
+      
+      - name: dbt_created_at
+        description: "Record creation timestamp (= dbt_updated_at for pre-hook delete)"
+        tests:
+          - not_null
+      
+      - name: dbt_updated_at
+        description: "Record update timestamp"
+        tests:
+          - not_null
+      
+      - name: dbt_source_model
+        description: "Model name that created this record"
+        tests:
+          - not_null
+      
+      - name: dbt_environment
+        description: "Target environment (dev/prod)"
+        tests:
+          - not_null
+

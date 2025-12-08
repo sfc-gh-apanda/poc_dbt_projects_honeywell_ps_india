@@ -2,103 +2,122 @@ version: 2
 
 models:
   # ═══════════════════════════════════════════════════════════════════════════════
-  # DIMENSION LAYER - Customer Dimension (Truncate & Load)
+  # AGGREGATES LAYER - Customer Aggregates (Truncate & Load)
   # ═══════════════════════════════════════════════════════════════════════════════
   # Pattern: TABLE (full refresh on every run)
-  # Audit: Full 7-column audit set (uniform across all layers)
-  # Note: dbt_created_at = dbt_updated_at (full refresh)
+  # Audit: Full 7-column audit set (dbt_created_at = dbt_updated_at)
   # ═══════════════════════════════════════════════════════════════════════════════
 
-  - name: dim_o2c_customer
+  - name: agg_o2c_by_customer
     description: |
-      **Customer Dimension**
+      **Customer O2C Aggregates**
       
       **Data Load Pattern:** TRUNCATE & LOAD (materialized='table')
       
-      Full table replacement on every dbt run. All rows are recreated,
-      so dbt_created_at = dbt_updated_at for every record.
+      Pre-aggregated O2C metrics by customer for fast dashboard queries.
+      Full table replacement on every run.
       
       **Audit Columns (7 uniform):**
       - dbt_run_id: dbt invocation ID
       - dbt_batch_id: Unique per model per run
       - dbt_loaded_at: Load timestamp
-      - dbt_created_at: Record creation timestamp (= dbt_updated_at)
-      - dbt_updated_at: Record update timestamp
+      - dbt_created_at: = dbt_updated_at (full refresh)
+      - dbt_updated_at: Same as created (full table rebuild)
       - dbt_source_model: Model name
       - dbt_environment: Target environment (dev/prod)
-      - dbt_row_hash: Change detection hash (bonus column)
     
     access: public
     
     config:
-      tags: ['dimension', 'truncate_load', 'pattern_example']
+      tags: ['aggregate', 'truncate_load']
     
     columns:
-      # Business Keys
-      - name: customer_key
-        description: "Surrogate key (customer_num_sk|source_system)"
-        tests:
-          - unique
-          - not_null
-      
+      # Customer Identity
       - name: source_system
         description: "Source ERP system"
         tests:
           - not_null
       
       - name: customer_id
-        description: "Customer ID (natural key)"
+        description: "Customer ID"
         tests:
           - not_null
       
-      # Attributes
       - name: customer_name
         description: "Customer name"
       
       - name: customer_type
-        description: "Customer type (E=External, I=Internal)"
+        description: "Customer type"
       
       - name: customer_country
-        description: "Customer country code"
+        description: "Customer country"
       
-      - name: customer_country_name
-        description: "Customer country full name"
+      # Volume Metrics
+      - name: total_orders
+        description: "Total number of orders"
       
-      - name: customer_classification
-        description: "Customer classification"
+      - name: total_invoices
+        description: "Total number of invoices"
       
-      - name: customer_account_group
-        description: "Customer account group"
+      - name: total_payments
+        description: "Total number of payments"
       
-      # MDM Attributes
-      - name: duns_number
-        description: "DUNS number"
+      # Value Metrics
+      - name: total_order_value
+        description: "Sum of all order amounts"
       
-      - name: global_ultimate_duns
-        description: "MDM Global Ultimate DUNS"
+      - name: total_invoice_value
+        description: "Sum of all invoice amounts"
       
-      - name: global_ultimate_name
-        description: "MDM Global Ultimate Name"
+      - name: total_payment_value
+        description: "Sum of all payment amounts"
       
-      - name: full_name
-        description: "MDM Full Name"
+      - name: total_outstanding
+        description: "Total outstanding amount"
       
-      # Derived
-      - name: is_internal
-        description: "Internal customer flag"
+      # Performance Metrics
+      - name: avg_dso
+        description: "Average Days Sales Outstanding"
       
-      # Source Tracking
-      - name: source_load_ts
-        description: "Source system load timestamp"
+      - name: median_dso
+        description: "Median Days Sales Outstanding"
       
-      - name: source_update_ts
-        description: "Source system update timestamp"
+      - name: max_dso
+        description: "Maximum Days Sales Outstanding"
       
-      # Row Hash (for change detection)
-      - name: dbt_row_hash
-        description: "MD5 hash of business columns for change detection"
+      # Payment Behavior
+      - name: on_time_payments
+        description: "Count of on-time payments"
+      
+      - name: late_payments
+        description: "Count of late payments"
+      
+      - name: overdue_count
+        description: "Count of overdue items"
+      
+      # Date Range
+      - name: first_order_date
+        description: "Date of first order"
+      
+      - name: last_order_date
+        description: "Date of most recent order"
+      
+      # Calculated Rates
+      - name: billing_rate_pct
+        description: "Invoices / Orders percentage"
+      
+      - name: collection_rate_pct
+        description: "Payments / Invoices percentage"
+      
+      - name: on_time_payment_pct
+        description: "On-time payments percentage"
+      
+      # Classification
+      - name: payment_behavior
+        description: "Customer payment behavior classification (EXCELLENT, GOOD, FAIR, POOR)"
         tests:
-          - not_null
+          - accepted_values:
+              values: ['EXCELLENT', 'GOOD', 'FAIR', 'POOR']
       
       # Audit Columns (7 uniform columns)
       - name: dbt_run_id
@@ -135,3 +154,4 @@ models:
         description: "Target environment (dev/prod)"
         tests:
           - not_null
+
