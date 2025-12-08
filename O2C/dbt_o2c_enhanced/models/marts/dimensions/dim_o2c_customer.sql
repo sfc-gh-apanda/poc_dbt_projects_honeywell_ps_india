@@ -1,7 +1,7 @@
 {{
     config(
         materialized='table',
-        pre_hook="{{ use_dynamic_warehouse() }}",
+        pre_hook="USE WAREHOUSE HONEYWELL_POC",
         tags=['dimension', 'truncate_load', 'pattern_example']
     )
 }}

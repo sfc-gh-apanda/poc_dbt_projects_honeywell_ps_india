@@ -1,25 +1,5 @@
 {% macro get_warehouse() %}
-{#-
-================================================================================
-    DYNAMIC WAREHOUSE LOOKUP MACRO
-================================================================================
-
-    IMPORTANT LIMITATION:
-    ---------------------
-    The `snowflake_warehouse` config is resolved at COMPILE time.
-    Database queries only work at EXECUTION time (when execute=True).
-    
-    This means: get_warehouse() in config() ALWAYS returns profiles.yml fallback.
-    
-    SOLUTION: Use pre_hook to switch warehouse at RUNTIME.
-    See use_dynamic_warehouse() macro below.
-
-================================================================================
--#}
-
-    {#- This only works during execution, not compilation -#}
-    {#- For config(), it will always return the fallback -#}
-    
+{#- Returns warehouse from config table or fallback. Works at EXECUTION time only. -#}
     {% set fallback_warehouse = target.warehouse %}
     
     {% if execute %}
@@ -33,19 +13,12 @@
             FROM EDW.CONFIG.DBT_WAREHOUSE_CONFIG
             WHERE is_active = TRUE
               AND (effective_to IS NULL OR effective_to >= CURRENT_DATE())
-              AND scope_name IN (
-                  '{{ model_name }}',
-                  '{{ layer_name }}',
-                  '{{ project_name }}',
-                  '{{ environment }}',
-                  'DEFAULT'
-              )
+              AND scope_name IN ('{{ model_name }}', '{{ layer_name }}', '{{ project_name }}', '{{ environment }}', 'DEFAULT')
             ORDER BY priority ASC
             LIMIT 1
         {% endset %}
         
         {% set results = run_query(lookup_query) %}
-        
         {% if results and results.rows | length > 0 %}
             {{ return(results.rows[0][0]) }}
         {% endif %}
@@ -55,88 +28,66 @@
 {% endmacro %}
 
 
-{# ============================================================================
-   USE_DYNAMIC_WAREHOUSE - Runtime warehouse switching via pre_hook
-   ============================================================================
-   
-   This is the WORKING solution for dynamic warehouse configuration.
-   Add this to your model's pre_hook to switch warehouse at runtime.
-   
-   Usage in model config:
-       {{
-           config(
-               materialized='table',
-               pre_hook="{{ use_dynamic_warehouse() }}"
-           )
-       }}
-   
-   ============================================================================ #}
-
 {% macro use_dynamic_warehouse() %}
-    {#- This runs at EXECUTION time, so database queries work! -#}
+{#-
+================================================================================
+DYNAMIC WAREHOUSE SWITCH - Executed as pre_hook
+================================================================================
+
+This generates a USE WAREHOUSE statement that queries the config table
+directly in SQL, bypassing the Jinja execute flag limitation.
+
+The SQL runs as a pre_hook before the model executes.
+================================================================================
+-#}
+
+{% set model_name = this.name if this else 'UNKNOWN' %}
+{% set layer_name = this.fqn[1] if (this and this.fqn | length > 1) else 'unknown' %}
+{% set project_name = this.package_name if this else 'unknown' %}
+{% set environment = target.name %}
+{% set fallback = target.warehouse %}
+
+{#- Generate pure SQL that will run as pre_hook -#}
+CALL SYSTEM$SET_RETURN_VALUE(NULL);
+DECLARE
+    v_warehouse VARCHAR;
+BEGIN
+    SELECT warehouse_name INTO v_warehouse
+    FROM EDW.CONFIG.DBT_WAREHOUSE_CONFIG
+    WHERE is_active = TRUE
+      AND (effective_to IS NULL OR effective_to >= CURRENT_DATE())
+      AND scope_name IN ('{{ model_name }}', '{{ layer_name }}', '{{ project_name }}', '{{ environment }}', 'DEFAULT')
+    ORDER BY priority ASC
+    LIMIT 1;
     
-    {% set model_name = this.name if this else 'UNKNOWN' %}
-    {% set layer_name = this.fqn[1] if (this and this.fqn | length > 1) else 'unknown' %}
-    {% set project_name = this.package_name if this else 'unknown' %}
-    {% set environment = target.name %}
-    {% set fallback_warehouse = target.warehouse %}
+    IF (v_warehouse IS NULL) THEN
+        v_warehouse := '{{ fallback }}';
+    END IF;
     
-    {% set lookup_query %}
-        SELECT warehouse_name
-        FROM EDW.CONFIG.DBT_WAREHOUSE_CONFIG
-        WHERE is_active = TRUE
-          AND (effective_to IS NULL OR effective_to >= CURRENT_DATE())
-          AND scope_name IN (
-              '{{ model_name }}',
-              '{{ layer_name }}',
-              '{{ project_name }}',
-              '{{ environment }}',
-              'DEFAULT'
-          )
-        ORDER BY priority ASC
-        LIMIT 1
-    {% endset %}
-    
-    {#- Execute during run phase -#}
-    {% if execute %}
-        {% set results = run_query(lookup_query) %}
-        {% if results and results.rows | length > 0 %}
-            {% set target_warehouse = results.rows[0][0] %}
-            {{ log("🏭 [" ~ model_name ~ "] Switching to warehouse: " ~ target_warehouse, info=True) }}
-            USE WAREHOUSE {{ target_warehouse }}
-        {% else %}
-            {{ log("🏭 [" ~ model_name ~ "] Using default warehouse: " ~ fallback_warehouse, info=True) }}
-            USE WAREHOUSE {{ fallback_warehouse }}
-        {% endif %}
-    {% else %}
-        {#- During compilation, output the USE WAREHOUSE statement with lookup -#}
-        USE WAREHOUSE IDENTIFIER(
-            COALESCE(
-                (SELECT warehouse_name FROM EDW.CONFIG.DBT_WAREHOUSE_CONFIG
-                 WHERE is_active = TRUE
-                   AND (effective_to IS NULL OR effective_to >= CURRENT_DATE())
-                   AND scope_name IN ('{{ model_name }}', '{{ layer_name }}', '{{ project_name }}', '{{ environment }}', 'DEFAULT')
-                 ORDER BY priority ASC LIMIT 1),
-                '{{ fallback_warehouse }}'
-            )
-        )
-    {% endif %}
+    EXECUTE IMMEDIATE 'USE WAREHOUSE ' || v_warehouse;
+END;
+
 {% endmacro %}
 
 
-{% macro log_warehouse_resolution() %}
-{#- Debug macro to see warehouse resolution. -#}
-    {% set model_name = this.name if this else 'UNKNOWN' %}
-    {% set layer_name = this.fqn[1] if (this and this.fqn | length > 1) else 'unknown' %}
-    {% set project_name = this.package_name if this else 'unknown' %}
-    {% set environment = target.name %}
-    
-    {{ log("═══════════════════════════════════════════════════════════", info=True) }}
-    {{ log("WAREHOUSE RESOLUTION DEBUG", info=True) }}
-    {{ log("Model:       " ~ model_name, info=True) }}
-    {{ log("Layer:       " ~ layer_name, info=True) }}
-    {{ log("Project:     " ~ project_name, info=True) }}
-    {{ log("Environment: " ~ environment, info=True) }}
-    {{ log("Resolved:    " ~ get_warehouse(), info=True) }}
-    {{ log("═══════════════════════════════════════════════════════════", info=True) }}
+{% macro use_warehouse_simple() %}
+{#- Simple version: Just outputs USE WAREHOUSE with inline query -#}
+{% set model_name = this.name if this else 'UNKNOWN' %}
+{% set layer_name = this.fqn[1] if (this and this.fqn | length > 1) else 'unknown' %}
+{% set project_name = this.package_name if this else 'unknown' %}
+{% set environment = target.name %}
+{% set fallback = target.warehouse %}
+
+USE WAREHOUSE IDENTIFIER(
+    (SELECT COALESCE(
+        (SELECT warehouse_name 
+         FROM EDW.CONFIG.DBT_WAREHOUSE_CONFIG
+         WHERE is_active = TRUE
+           AND (effective_to IS NULL OR effective_to >= CURRENT_DATE())
+           AND scope_name IN ('{{ model_name }}', '{{ layer_name }}', '{{ project_name }}', '{{ environment }}', 'DEFAULT')
+         ORDER BY priority ASC
+         LIMIT 1),
+        '{{ fallback }}'
+    ))
+)
 {% endmacro %}
