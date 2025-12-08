@@ -1,7 +1,7 @@
 {{
     config(
         materialized='view',
-        snowflake_warehouse=get_warehouse(),
+        pre_hook="{{ use_dynamic_warehouse() }}",
         tags=['staging', 'orders']
     )
 }}
