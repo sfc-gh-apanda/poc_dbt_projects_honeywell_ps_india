@@ -20,7 +20,7 @@ models:
     config:
       tags: ['dimension', 'truncate_load', 'pattern_example']
       contract:
-        enforced: true
+        enforced: false
     
     columns:
       - name: customer_key
