@@ -24,47 +24,67 @@ models:
     
     columns:
       - name: customer_key
-        description: "Surrogate key (MD5 hash)"
-        data_type: VARCHAR(32)
+        description: "Surrogate key (customer_num_sk|source_system)"
+        data_type: VARCHAR(16777216)
         tests:
           - unique
           - not_null
       
       - name: source_system
         description: "Source ERP system"
-        data_type: VARCHAR(10)
+        data_type: VARCHAR(16777216)
         tests:
           - not_null
       
       - name: customer_id
         description: "Customer ID (natural key)"
-        data_type: VARCHAR(50)
+        data_type: NUMBER(38,0)
         tests:
           - not_null
       
       - name: customer_name
         description: "Customer name"
-        data_type: VARCHAR(200)
+        data_type: VARCHAR(16777216)
       
       - name: customer_type
         description: "Customer type (E=External, I=Internal)"
-        data_type: VARCHAR(10)
+        data_type: VARCHAR(16777216)
       
       - name: customer_country
-        description: "Customer country"
-        data_type: VARCHAR(100)
+        description: "Customer country code"
+        data_type: VARCHAR(16777216)
       
-      - name: customer_region
-        description: "Customer region"
-        data_type: VARCHAR(100)
+      - name: customer_country_name
+        description: "Customer country full name"
+        data_type: VARCHAR(16777216)
       
-      - name: credit_limit
-        description: "Customer credit limit"
-        data_type: NUMBER(18,2)
+      - name: customer_classification
+        description: "Customer classification"
+        data_type: VARCHAR(16777216)
       
-      - name: payment_terms_code
-        description: "Default payment terms"
-        data_type: VARCHAR(20)
+      - name: customer_account_group
+        description: "Customer account group"
+        data_type: VARCHAR(16777216)
+      
+      - name: duns_number
+        description: "DUNS number"
+        data_type: VARCHAR(16777216)
+      
+      - name: global_ultimate_duns
+        description: "MDM Global Ultimate DUNS"
+        data_type: VARCHAR(16777216)
+      
+      - name: global_ultimate_name
+        description: "MDM Global Ultimate Name"
+        data_type: VARCHAR(16777216)
+      
+      - name: full_name
+        description: "MDM Full Name"
+        data_type: VARCHAR(16777216)
+      
+      - name: is_internal
+        description: "Internal customer flag"
+        data_type: BOOLEAN
       
       - name: source_load_ts
         description: "Source system load timestamp"
@@ -76,17 +96,17 @@ models:
       
       - name: dbt_row_hash
         description: "Row hash for change detection"
-        data_type: VARCHAR(32)
+        data_type: VARCHAR(16777216)
       
       - name: dbt_run_id
         description: "dbt invocation ID"
-        data_type: VARCHAR(50)
+        data_type: VARCHAR(16777216)
         tests:
           - not_null
       
       - name: dbt_batch_id
         description: "Batch ID (unique per model per run)"
-        data_type: VARCHAR(32)
+        data_type: VARCHAR(16777216)
         tests:
           - not_null
       
@@ -96,12 +116,14 @@ models:
         tests:
           - not_null
       
-      - name: dbt_source_model
-        description: "Source dbt model"
-        data_type: VARCHAR(100)
+      - name: dbt_created_at
+        description: "Record creation timestamp"
+        data_type: TIMESTAMP_NTZ
+        tests:
+          - not_null
       
-      - name: dbt_environment
-        description: "Target environment"
-        data_type: VARCHAR(20)
-
-
+      - name: dbt_updated_at
+        description: "Record update timestamp"
+        data_type: TIMESTAMP_NTZ
+        tests:
+          - not_null

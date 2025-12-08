@@ -36,24 +36,9 @@ Testing This Pattern:
 ═══════════════════════════════════════════════════════════════════════════════
 #}
 
-WITH source_customers AS (
-    SELECT
-        source_system,
-        customer_num_sk,
-        customer_name,
-        customer_type,
-        customer_country,
-        customer_region,
-        credit_limit,
-        payment_terms_code,
-        load_ts AS source_load_ts,
-        update_ts AS source_update_ts
-    FROM {{ source('corp_master', 'DIM_CUSTOMER') }}
-)
-
 SELECT
     -- Surrogate key
-    {{ hash_key(['source_system', 'customer_num_sk'], 'customer_key') }},
+    customer_num_sk || '|' || source_system AS customer_key,
     
     -- Natural key
     source_system,
@@ -63,20 +48,33 @@ SELECT
     customer_name,
     customer_type,
     customer_country,
-    customer_region,
-    credit_limit,
-    payment_terms_code,
+    customer_country_name,
+    customer_classification,
+    customer_account_group,
+    
+    -- MDM attributes
+    duns_number,
+    mdm_customer_global_ultimate_duns AS global_ultimate_duns,
+    mdm_customer_global_ultimate_name AS global_ultimate_name,
+    mdm_customer_full_name AS full_name,
+    
+    -- Derived flags
+    CASE WHEN customer_type = 'I' THEN TRUE ELSE FALSE END AS is_internal,
     
     -- Source tracking
-    source_load_ts,
-    source_update_ts,
+    load_ts AS source_load_ts,
+    update_ts AS source_update_ts,
     
     -- Row hash for downstream change detection
-    {{ row_hash(['customer_name', 'customer_type', 'customer_country', 'credit_limit']) }},
+    MD5(COALESCE(customer_name, '') || '|' || COALESCE(customer_type, '') || '|' || COALESCE(customer_country, '')) AS dbt_row_hash,
     
-    -- Full audit columns
-    {{ audit_columns() }}
+    -- Audit columns
+    '{{ invocation_id }}' AS dbt_run_id,
+    MD5('{{ invocation_id }}' || '|' || customer_num_sk) AS dbt_batch_id,
+    CURRENT_TIMESTAMP()::TIMESTAMP_NTZ AS dbt_loaded_at,
+    CURRENT_TIMESTAMP()::TIMESTAMP_NTZ AS dbt_created_at,
+    CURRENT_TIMESTAMP()::TIMESTAMP_NTZ AS dbt_updated_at
 
-FROM source_customers
+FROM {{ source('corp_master', 'DIM_CUSTOMER') }}
 
-
+WHERE customer_num_sk IS NOT NULL

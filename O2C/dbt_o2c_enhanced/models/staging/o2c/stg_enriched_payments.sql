@@ -9,98 +9,47 @@
 ═══════════════════════════════════════════════════════════════════════════════
 STG_ENRICHED_PAYMENTS - Payments with Bank Account Enrichment
 ═══════════════════════════════════════════════════════════════════════════════
+
+Purpose: Join fact_payments with dim_bank_account for bank details
+Pattern: VIEW (always current, no materialization)
+Audit: Minimal audit columns (run_id, loaded_at)
+
+═══════════════════════════════════════════════════════════════════════════════
 #}
-
-WITH payments AS (
-    SELECT
-        source_system,
-        company_code,
-        payment_id,
-        invoice_id,
-        invoice_line,
-        payment_reference,
-        payment_date,
-        clearing_date,
-        value_date,
-        payment_method_code,
-        payment_type,
-        payment_amount_lcl,
-        payment_amount_usd,
-        discount_amount_lcl,
-        currency_code,
-        bank_account_id,
-        payment_status,
-        cleared_flag,
-        reconciled_flag,
-        reversed_flag,
-        gl_account,
-        profit_center,
-        cost_center,
-        created_by,
-        created_date
-    FROM {{ source('corp_tran', 'FACT_PAYMENTS') }}
-),
-
-bank_accounts AS (
-    SELECT
-        source_system,
-        bank_account_id,
-        bank_name,
-        bank_country,
-        account_type,
-        currency_code AS bank_currency
-    FROM {{ source('corp_master', 'DIM_BANK_ACCOUNT') }}
-)
 
 SELECT
     -- Payment keys
-    p.source_system,
-    p.company_code,
-    p.payment_id,
-    
-    -- Generate surrogate key
-    {{ hash_key(['p.source_system', 'p.payment_id'], 'payment_key') }},
-    
-    -- Related invoice
-    p.invoice_id,
-    p.invoice_line,
-    {{ hash_key(['p.source_system', 'p.invoice_id', 'p.invoice_line'], 'invoice_key') }},
+    pay.source_system,
+    pay.company_code,
+    pay.payment_id,
+    pay.source_system || '|' || pay.payment_id AS payment_key,
+    pay.invoice_id,
+    pay.invoice_line,
+    pay.source_system || '|' || pay.invoice_id || '|' || COALESCE(pay.invoice_line, 0) AS invoice_key,
     
     -- Payment details
-    p.payment_reference,
-    p.payment_date,
-    p.clearing_date,
-    p.value_date,
-    p.payment_method_code,
-    p.payment_type,
-    p.payment_amount_lcl,
-    p.payment_amount_usd AS payment_amount,
-    p.discount_amount_lcl,
-    p.currency_code,
-    p.payment_status,
-    p.cleared_flag,
-    p.reconciled_flag,
-    p.reversed_flag,
+    pay.payment_reference,
+    pay.payment_date,
+    pay.clearing_date,
+    pay.payment_amount_lcl AS payment_amount,
+    pay.currency_code AS payment_currency,
+    pay.payment_status,
+    pay.cleared_flag,
     
-    -- Bank info (from enrichment)
-    p.bank_account_id,
-    ba.bank_name,
-    ba.bank_country,
-    ba.account_type AS bank_account_type,
+    -- Bank info (from JOIN)
+    pay.bank_account_id,
+    bank.bank_name,
+    bank.bank_country,
+    bank.bank_account_type,
     
-    -- Organizational
-    p.gl_account,
-    p.profit_center,
-    p.cost_center,
-    p.created_by,
-    p.created_date,
-    
-    -- Audit columns
-    {{ audit_columns_minimal() }}
+    -- Audit columns (minimal for views)
+    '{{ invocation_id }}' AS dbt_run_id,
+    CURRENT_TIMESTAMP()::TIMESTAMP_NTZ AS dbt_loaded_at
 
-FROM payments p
-LEFT JOIN bank_accounts ba
-    ON p.bank_account_id = ba.bank_account_id
-    AND p.source_system = ba.source_system
+FROM {{ source('corp_tran', 'FACT_PAYMENTS') }} pay
 
+LEFT JOIN {{ source('corp_master', 'DIM_BANK_ACCOUNT') }} bank
+    ON pay.bank_account_id = bank.bank_account_id
+    AND pay.source_system = bank.source_system
 
+WHERE pay.payment_date >= DATEADD('year', -2, CURRENT_DATE())

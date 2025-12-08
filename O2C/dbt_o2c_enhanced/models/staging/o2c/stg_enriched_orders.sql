@@ -17,90 +17,41 @@ Audit: Minimal audit columns (run_id, loaded_at)
 ═══════════════════════════════════════════════════════════════════════════════
 #}
 
-WITH orders AS (
-    SELECT
-        source_system,
-        company_code,
-        order_id,
-        order_line,
-        customer_id,
-        order_date,
-        requested_delivery_date,
-        order_type,
-        order_status,
-        product_id,
-        quantity,
-        unit_price,
-        order_amount_lcl,
-        order_amount_usd,
-        currency_code,
-        sales_org,
-        distribution_channel,
-        profit_center,
-        cost_center,
-        created_by,
-        created_date
-    FROM {{ source('corp_tran', 'FACT_SALES_ORDERS') }}
-),
-
-customers AS (
-    SELECT
-        source_system,
-        customer_num_sk,
-        customer_name,
-        customer_type,
-        customer_country,
-        customer_region,
-        credit_limit,
-        payment_terms_code AS customer_payment_terms
-    FROM {{ source('corp_master', 'DIM_CUSTOMER') }}
-)
-
 SELECT
     -- Order keys
-    o.source_system,
-    o.company_code,
-    o.order_id,
-    o.order_line,
-    
-    -- Generate surrogate key
-    {{ hash_key(['o.source_system', 'o.order_id', 'o.order_line'], 'order_key') }},
+    orders.source_system,
+    orders.company_code,
+    orders.order_id,
+    orders.order_line,
+    orders.source_system || '|' || orders.order_id || '|' || orders.order_line AS order_key,
     
     -- Order details
-    o.order_date,
-    o.requested_delivery_date,
-    o.order_type,
-    o.order_status,
-    o.product_id,
-    o.quantity,
-    o.unit_price,
-    o.order_amount_lcl,
-    o.order_amount_usd AS order_amount,
-    o.currency_code,
+    orders.order_number,
+    orders.order_date,
+    orders.order_quantity,
+    orders.order_amount_lcl AS order_amount,
+    orders.currency_code AS order_currency,
+    orders.order_status,
     
     -- Customer info (from enrichment)
-    o.customer_id,
-    c.customer_name,
-    c.customer_type,
-    c.customer_country,
-    c.customer_region,
-    c.credit_limit,
-    c.customer_payment_terms,
+    orders.customer_id,
+    cust.customer_name,
+    cust.customer_type,
+    cust.customer_country,
+    cust.customer_country_name,
     
     -- Organizational
-    o.sales_org,
-    o.distribution_channel,
-    o.profit_center,
-    o.cost_center,
-    o.created_by,
-    o.created_date,
+    orders.sales_org,
+    orders.profit_center,
     
     -- Audit columns (minimal for views)
-    {{ audit_columns_minimal() }}
+    '{{ invocation_id }}' AS dbt_run_id,
+    CURRENT_TIMESTAMP()::TIMESTAMP_NTZ AS dbt_loaded_at
 
-FROM orders o
-LEFT JOIN customers c
-    ON o.customer_id = c.customer_num_sk
-    AND o.source_system = c.source_system
+FROM {{ source('corp_tran', 'FACT_SALES_ORDERS') }} orders
 
+LEFT JOIN {{ source('corp_master', 'DIM_CUSTOMER') }} cust
+    ON orders.customer_id = cust.customer_num_sk
+    AND orders.source_system = cust.source_system
 
+WHERE orders.order_date >= DATEADD('year', -2, CURRENT_DATE())
