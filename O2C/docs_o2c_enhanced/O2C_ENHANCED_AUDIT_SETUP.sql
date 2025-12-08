@@ -133,13 +133,13 @@ CREATE TABLE IF NOT EXISTS DBT_MODEL_LOG (
 COMMENT ON TABLE DBT_MODEL_LOG IS 
     'dbt model-level tracking - one row per model per run';
 
--- Create indexes for common queries
-CREATE INDEX IF NOT EXISTS idx_model_log_run_id ON DBT_MODEL_LOG(run_id);
-CREATE INDEX IF NOT EXISTS idx_model_log_model_name ON DBT_MODEL_LOG(model_name);
-CREATE INDEX IF NOT EXISTS idx_model_log_batch_id ON DBT_MODEL_LOG(batch_id);
-CREATE INDEX IF NOT EXISTS idx_model_log_status ON DBT_MODEL_LOG(status);
+-- Note: Snowflake standard tables do not support indexes.
+-- For performance optimization on large tables, consider:
+-- 1. Using CLUSTER BY (run_id, model_name) on table creation
+-- 2. Using Search Optimization Service for point lookups
+-- Example: ALTER TABLE DBT_MODEL_LOG ADD SEARCH OPTIMIZATION ON EQUALITY(run_id, model_name, batch_id);
 
-SELECT '✅ STEP 3 COMPLETE: DBT_MODEL_LOG table created with indexes' AS status;
+SELECT '✅ STEP 3 COMPLETE: DBT_MODEL_LOG table created' AS status;
 
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- STEP 4: CREATE DBT_BATCH_LINEAGE TABLE (Optional - for advanced lineage)
@@ -181,8 +181,8 @@ CREATE TABLE IF NOT EXISTS DBT_BATCH_LINEAGE (
 COMMENT ON TABLE DBT_BATCH_LINEAGE IS 
     'Batch-to-batch data lineage tracking';
 
-CREATE INDEX IF NOT EXISTS idx_lineage_batch_id ON DBT_BATCH_LINEAGE(batch_id);
-CREATE INDEX IF NOT EXISTS idx_lineage_source_batch ON DBT_BATCH_LINEAGE(source_batch_id);
+-- Note: Snowflake standard tables do not support indexes.
+-- For performance optimization, consider Search Optimization Service if needed.
 
 SELECT '✅ STEP 4 COMPLETE: DBT_BATCH_LINEAGE table created' AS status;
 
