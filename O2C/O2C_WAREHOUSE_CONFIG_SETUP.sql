@@ -197,6 +197,7 @@ INSERT INTO EDW.CONFIG.DBT_WAREHOUSE_CONFIG
     (config_scope, scope_name, warehouse_name, priority, notes)
 VALUES
     ('PROJECT', 'dbt_o2c', 'COMPUTE_WH', 40, 'O2C project default'),
+    ('PROJECT', 'dbt_o2c_enhanced', 'COMPUTE_WH', 40, 'O2C Enhanced project default'),
     ('PROJECT', 'dbt_foundation', 'COMPUTE_WH', 40, 'Foundation project default'),
     ('PROJECT', 'dbt_finance_core', 'COMPUTE_WH', 40, 'Finance project default');
 
