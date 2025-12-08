@@ -1,16 +1,16 @@
+{#- Determine if we need a pre-delete hook based on reload_source variable -#}
+{% set reload_source = var('reload_source', 'ALL') %}
+{% set pre_delete_hook = [] %}
+{% if reload_source != 'ALL' %}
+    {% set pre_delete_hook = ["DELETE FROM " ~ this ~ " WHERE source_system = '" ~ reload_source ~ "'"] %}
+{% endif %}
+
 {{
     config(
         materialized='incremental',
         incremental_strategy='append',
-        
-        -- Pre-hook: Delete specific source before insert
-        pre_hook=[
-            "DELETE FROM {{ this }} WHERE source_system = '{{ var('reload_source', 'ALL') }}' AND dbt_loaded_at < CURRENT_DATE()"
-            if var('reload_source', 'ALL') != 'ALL'
-            else "-- No pre-delete when reload_source = ALL"
-        ],
-        
-        tags=['partitioned', 'pre_hook_delete', 'source_reload', 'pattern_example']
+        tags=['partitioned', 'pre_hook_delete', 'source_reload', 'pattern_example'],
+        pre_hook=pre_delete_hook
     )
 }}
 
