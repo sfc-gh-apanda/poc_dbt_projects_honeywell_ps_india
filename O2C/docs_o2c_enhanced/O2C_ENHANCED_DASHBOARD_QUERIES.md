@@ -409,7 +409,8 @@ SELECT
     total_seconds,
     MAX(run_started_at) AS last_run
 FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_MODEL_EXECUTIONS
-WHERE schema_name IN ('O2C_ENHANCED_DIMENSIONS', 'O2C_ENHANCED_AGGREGATES')
+WHERE schema_name LIKE 'O2C_ENHANCED%'
+  AND (schema_name LIKE '%DIMENSION%' OR schema_name LIKE '%AGGREGATE%')
   AND run_started_at >= DATEADD(day, -7, CURRENT_DATE())
   AND status = 'SUCCESS'
 GROUP BY model_name, schema_name
@@ -432,16 +433,17 @@ SELECT
     model_name,
     schema_name,
     CASE 
-        WHEN schema_name = 'O2C_ENHANCED_CORE' THEN 'MERGE'
-        WHEN schema_name = 'O2C_ENHANCED_EVENTS' THEN 'APPEND'
-        WHEN schema_name = 'O2C_ENHANCED_PARTITIONED' THEN 'DELETE+INSERT'
+        WHEN schema_name LIKE '%CORE%' THEN 'MERGE'
+        WHEN schema_name LIKE '%EVENT%' THEN 'APPEND'
+        WHEN schema_name LIKE '%PARTITION%' THEN 'DELETE+INSERT'
         ELSE 'OTHER'
     END AS incremental_strategy,
     COUNT(*) AS run_count,
     ROUND(AVG(total_node_runtime), 2) AS avg_seconds,
     SUM(rows_affected) AS total_rows_processed
 FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_MODEL_EXECUTIONS
-WHERE schema_name IN ('O2C_ENHANCED_CORE', 'O2C_ENHANCED_EVENTS', 'O2C_ENHANCED_PARTITIONED')
+WHERE schema_name LIKE 'O2C_ENHANCED%'
+  AND (schema_name LIKE '%CORE%' OR schema_name LIKE '%EVENT%' OR schema_name LIKE '%PARTITION%')
   AND run_started_at >= DATEADD(day, -7, CURRENT_DATE())
   AND status = 'SUCCESS'
 GROUP BY model_name, schema_name
@@ -768,11 +770,9 @@ For each query above:
 **Schema Names Used:**
 - `EDW.O2C_ENHANCED_MONITORING.*` - Monitoring views
 - `EDW.O2C_AUDIT.*` - Audit tracking views
-- `EDW.O2C_ENHANCED_CORE.*` - Core mart tables
-- `EDW.O2C_ENHANCED_DIMENSIONS.*` - Dimension tables
-- `EDW.O2C_ENHANCED_EVENTS.*` - Event tables
-- `EDW.O2C_ENHANCED_PARTITIONED.*` - Partitioned tables
-- `EDW.O2C_ENHANCED_AGGREGATES.*` - Aggregate tables
+- `EDW.O2C_ENHANCED*` - All dbt model schemas (Core, Dimensions, Events, etc.)
+
+**Note:** Schema filtering uses `LIKE 'O2C_ENHANCED%'` pattern to flexibly match all O2C Enhanced schemas.
 
 **Ready for production O2C Enhanced monitoring!** 🚀
 

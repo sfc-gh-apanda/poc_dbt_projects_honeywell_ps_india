@@ -82,15 +82,8 @@ SELECT
     query_tag
 FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
 WHERE database_name = 'EDW'
-  -- O2C Enhanced schemas (clean naming)
-  AND schema_name IN (
-      'O2C_ENHANCED_STAGING',
-      'O2C_ENHANCED_DIMENSIONS',
-      'O2C_ENHANCED_CORE',
-      'O2C_ENHANCED_EVENTS',
-      'O2C_ENHANCED_PARTITIONED',
-      'O2C_ENHANCED_AGGREGATES'
-  )
+  -- O2C Enhanced schemas (flexible pattern matching)
+  AND schema_name LIKE 'O2C_ENHANCED%'
   AND start_time >= DATEADD(day, -90, CURRENT_DATE())
   AND execution_status IN ('SUCCESS', 'FAIL')
   AND (
