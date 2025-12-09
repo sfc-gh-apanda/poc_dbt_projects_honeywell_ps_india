@@ -22,26 +22,6 @@
 ================================================================================
     GET_WAREHOUSE - Dynamic warehouse lookup via run_query
 ================================================================================
-
-    This macro queries the config table to get the warehouse name.
-    
-    In Snowflake Native dbt, run_query() may execute during compile phase
-    because the dbt runtime is already inside a Snowflake session.
-    
-    Usage:
-        {{
-            config(
-                materialized='table',
-                snowflake_warehouse=get_warehouse()
-            )
-        }}
-        
-    To change warehouse (NO CI/CD needed):
-        UPDATE EDW.CONFIG.DBT_WAREHOUSE_CONFIG
-        SET warehouse_name = 'NEW_WAREHOUSE'
-        WHERE scope_name = 'model_name';
-
-================================================================================
 -#}
 
 {#- Build scope values for lookup -#}
@@ -50,6 +30,16 @@
 {% set project = project_name %}
 {% set environment = target.name %}
 {% set fallback = target.warehouse %}
+
+{#- DEBUG: Log what we're working with -#}
+{{ log("=== GET_WAREHOUSE DEBUG ===", info=True) }}
+{{ log("  this available: " ~ (this is not none), info=True) }}
+{{ log("  model_name: " ~ model_name, info=True) }}
+{{ log("  layer_name: " ~ layer_name, info=True) }}
+{{ log("  project: " ~ project, info=True) }}
+{{ log("  environment: " ~ environment, info=True) }}
+{{ log("  fallback: " ~ fallback, info=True) }}
+{{ log("  execute flag: " ~ execute, info=True) }}
 
 {#- Query the config table -#}
 {% set query %}
@@ -62,19 +52,72 @@
     LIMIT 1
 {% endset %}
 
-{#- 
-    Execute query and return result
-    NOTE: In Snowflake Native dbt, run_query() may work at compile time
-    because the runtime is already inside Snowflake.
-    If results are empty, fallback to profiles.yml warehouse.
--#}
+{{ log("  Query: " ~ query | replace('\n', ' '), info=True) }}
+
+{#- Execute query and check results -#}
 {% set results = run_query(query) %}
 
-{% if results and results.rows | length > 0 %}
-    {{ return(results.columns[0].values()[0]) }}
+{{ log("  run_query executed", info=True) }}
+{{ log("  results is none: " ~ (results is none), info=True) }}
+
+{% if results %}
+    {{ log("  results.rows length: " ~ results.rows | length, info=True) }}
+    {% if results.rows | length > 0 %}
+        {% set warehouse_value = results.columns[0].values()[0] %}
+        {{ log("  >>> FOUND warehouse: " ~ warehouse_value, info=True) }}
+        {{ log("=== END DEBUG (returning: " ~ warehouse_value ~ ") ===", info=True) }}
+        {{ return(warehouse_value) }}
+    {% else %}
+        {{ log("  >>> NO ROWS returned", info=True) }}
+    {% endif %}
 {% else %}
-    {{ return(fallback) }}
+    {{ log("  >>> RESULTS IS NONE/EMPTY", info=True) }}
 {% endif %}
+
+{{ log("=== END DEBUG (returning fallback: " ~ fallback ~ ") ===", info=True) }}
+{{ return(fallback) }}
+
+{% endmacro %}
+
+
+{% macro get_warehouse_hardcoded() %}
+{#-
+================================================================================
+    GET_WAREHOUSE_HARDCODED - Test with hardcoded scope (bypass 'this' issue)
+================================================================================
+-#}
+
+{% set fallback = target.warehouse %}
+
+{{ log("=== GET_WAREHOUSE_HARDCODED DEBUG ===", info=True) }}
+{{ log("  execute flag: " ~ execute, info=True) }}
+
+{#- Hardcoded query - no dependency on 'this' -#}
+{% set query %}
+    SELECT warehouse_name 
+    FROM EDW.CONFIG.DBT_WAREHOUSE_CONFIG 
+    WHERE is_active = TRUE
+      AND scope_name = 'stg_enriched_orders'
+    LIMIT 1
+{% endset %}
+
+{{ log("  Query: " ~ query | replace('\n', ' '), info=True) }}
+
+{% set results = run_query(query) %}
+
+{{ log("  run_query executed", info=True) }}
+
+{% if results %}
+    {{ log("  results.rows length: " ~ results.rows | length, info=True) }}
+    {% if results.rows | length > 0 %}
+        {% set warehouse_value = results.columns[0].values()[0] %}
+        {{ log("  >>> FOUND warehouse: " ~ warehouse_value, info=True) }}
+        {{ return(warehouse_value) }}
+    {% endif %}
+{% endif %}
+
+{{ log("  >>> Returning fallback: " ~ fallback, info=True) }}
+{{ return(fallback) }}
 
 {% endmacro %}
 
@@ -99,9 +142,6 @@
                 pre_hook="{{ switch_warehouse() }}"
             )
         }}
-        
-    Prerequisites:
-        Run O2C_ENHANCED_DYNAMIC_WAREHOUSE_SETUP.sql to create the stored procedure.
 
 ================================================================================
 -#}
