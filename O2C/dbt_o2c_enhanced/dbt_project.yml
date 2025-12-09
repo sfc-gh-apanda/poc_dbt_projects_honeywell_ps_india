@@ -9,6 +9,8 @@
 # ✅ Processing tracking tables (run log, model log, batch lineage)
 # ✅ Automated logging via hooks
 # ✅ Enhanced telemetry and row count tracking
+# ✅ dbt.log archival to Snowflake (DBT_LOG_ARCHIVE table)
+# ✅ Dynamic warehouse configuration via stored procedure
 # ═══════════════════════════════════════════════════════════════════════════════
 
 name: 'dbt_o2c_enhanced'
@@ -37,6 +39,7 @@ on-run-start:
 
 on-run-end:
   - "{{ log_run_end() }}"
+  - "CALL EDW.O2C_AUDIT.ARCHIVE_DBT_LOG('LATEST')"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # VARIABLES
