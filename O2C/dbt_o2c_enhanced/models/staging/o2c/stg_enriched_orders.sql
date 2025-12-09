@@ -6,6 +6,9 @@
     )
 }}
 
+{# DEBUG: Log what config dbt resolved #}
+{{ log(">>> MODEL CONFIG DEBUG: snowflake_warehouse = " ~ config.get('snowflake_warehouse', 'NOT SET'), info=True) }}
+
 {#
 ═══════════════════════════════════════════════════════════════════════════════
 STG_ENRICHED_ORDERS - Orders with Customer Enrichment
