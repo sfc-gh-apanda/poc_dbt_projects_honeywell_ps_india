@@ -52,7 +52,7 @@ Purpose: Insert a new record into DBT_RUN_LOG when a dbt run begins
                 CURRENT_WAREHOUSE(),
                 CURRENT_USER(),
                 CURRENT_ROLE(),
-                '{{ invocation_args_dict.get("select", "all") if invocation_args_dict is defined else "all" }}'
+                '{{ invocation_args_dict.get("select", ["all"]) | join(",") if invocation_args_dict is defined else "all" }}'
             WHERE NOT EXISTS (
                 SELECT 1 FROM EDW.O2C_AUDIT.DBT_RUN_LOG 
                 WHERE run_id = '{{ invocation_id }}'
