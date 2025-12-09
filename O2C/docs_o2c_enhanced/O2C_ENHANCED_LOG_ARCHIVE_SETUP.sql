@@ -72,59 +72,59 @@ PACKAGES = ('snowflake-snowpark-python')
 HANDLER = 'archive_dbt_log'
 EXECUTE AS CALLER
 AS
-$$
+'
 import re
 import os
 from datetime import datetime
 
-def archive_dbt_log(session, p_archive_mode='LATEST'):
+def archive_dbt_log(session, p_archive_mode="LATEST"):
     """
     Archive dbt.log content to EDW.O2C_AUDIT.DBT_LOG_ARCHIVE
     
     Args:
         session: Snowpark session
-        p_archive_mode: 'LATEST' (only most recent run) or 'ALL' (all unarchived runs)
+        p_archive_mode: LATEST (only most recent run) or ALL (all unarchived runs)
     
     Returns:
         dict with status, archived count, and details
     """
-    log_path = '/tmp/dbt/logs/dbt.log'
+    log_path = "/tmp/dbt/logs/dbt.log"
     
     # Check if log file exists
     if not os.path.exists(log_path):
         return {
-            'status': 'error',
-            'message': 'Log file not found at ' + log_path,
-            'archived_count': 0
+            "status": "error",
+            "message": "Log file not found at " + log_path,
+            "archived_count": 0
         }
     
     # Read the entire log file
-    with open(log_path, 'r', encoding='utf-8', errors='replace') as f:
+    with open(log_path, "r", encoding="utf-8", errors="replace") as f:
         content = f.read()
     
     if not content.strip():
         return {
-            'status': 'error',
-            'message': 'Log file is empty',
-            'archived_count': 0
+            "status": "error",
+            "message": "Log file is empty",
+            "archived_count": 0
         }
     
     # Pattern to match run headers:
     # ============================== 00:53:51.447649 | 8f058ebd-e6a0-4ec9-8987-740d2e74e165 ==============================
-    header_pattern = r'^={30} ([\d:.]+) \| ([a-f0-9-]{36}) ={30}$'
+    header_pattern = r"^={30} ([\\d:.]+) \\| ([a-f0-9-]{36}) ={30}$"
     
     # Find all run headers with their positions
     matches = list(re.finditer(header_pattern, content, re.MULTILINE))
     
     if not matches:
         return {
-            'status': 'error',
-            'message': 'No run headers found in log file',
-            'archived_count': 0
+            "status": "error",
+            "message": "No run headers found in log file",
+            "archived_count": 0
         }
     
     # Determine which runs to archive
-    if p_archive_mode.upper() == 'LATEST':
+    if p_archive_mode.upper() == "LATEST":
         runs_to_process = [matches[-1]]  # Only the last match
         run_indices = [len(matches) - 1]
     else:  # ALL
@@ -139,16 +139,13 @@ def archive_dbt_log(session, p_archive_mode='LATEST'):
         run_id = match.group(2)
         
         # Check if already archived
-        existing_check = session.sql(f"""
-            SELECT 1 FROM EDW.O2C_AUDIT.DBT_LOG_ARCHIVE 
-            WHERE run_id = '{run_id}'
-        """).collect()
+        existing_check = session.sql(f"SELECT 1 FROM EDW.O2C_AUDIT.DBT_LOG_ARCHIVE WHERE run_id = \'{run_id}\'").collect()
         
         if existing_check:
             skipped_runs.append(run_id)
             continue
         
-        # Extract this run's content
+        # Extract this runs content
         start_pos = match.start()
         # End is either the next header or EOF
         if idx + 1 < len(matches):
@@ -159,70 +156,81 @@ def archive_dbt_log(session, p_archive_mode='LATEST'):
         run_log = content[start_pos:end_pos].strip()
         
         # Extract metrics from log content
-        error_count = len(re.findall(r'\[error\s?\]', run_log, re.IGNORECASE))
-        warning_count = len(re.findall(r'\[warn\s?\]', run_log, re.IGNORECASE))
-        line_count = run_log.count('\n') + 1
+        error_count = len(re.findall(r"\\[error\\s?\\]", run_log, re.IGNORECASE))
+        warning_count = len(re.findall(r"\\[warn\\s?\\]", run_log, re.IGNORECASE))
+        line_count = run_log.count("\\n") + 1
         
         # Extract dbt version and command
-        version_match = re.search(r'Running with dbt=(\d+\.\d+\.\d+)', run_log)
-        dbt_version = version_match.group(1) if version_match else 'unknown'
+        version_match = re.search(r"Running with dbt=(\\d+\\.\\d+\\.\\d+)", run_log)
+        dbt_version = version_match.group(1) if version_match else "unknown"
         
-        command_match = re.search(r"Command `cli (\w+)`", run_log)
-        dbt_command = command_match.group(1) if command_match else 'unknown'
+        command_match = re.search(r"Command `cli (\\w+)`", run_log)
+        dbt_command = command_match.group(1) if command_match else "unknown"
         
         # Extract target environment
-        env_match = re.search(r"target='(\w+)'", run_log)
-        target_env = env_match.group(1) if env_match else 'unknown'
+        env_match = re.search(r"target=\'(\\w+)\'", run_log)
+        target_env = env_match.group(1) if env_match else "unknown"
         
-        # Escape the log content for SQL
-        escaped_log = run_log.replace("'", "''").replace("$$", "$ $")
-        
-        # Insert into archive table
-        insert_sql = f"""
-            INSERT INTO EDW.O2C_AUDIT.DBT_LOG_ARCHIVE 
-            (run_id, project_name, target_environment, dbt_version, dbt_command,
-             log_content, log_size_bytes, log_line_count, 
-             error_count, warning_count, archived_at)
-            VALUES (
-                '{run_id}',
-                'dbt_o2c_enhanced',
-                '{target_env}',
-                '{dbt_version}',
-                '{dbt_command}',
-                $LOG_CONTENT${run_log}$LOG_CONTENT$,
-                {len(run_log)},
-                {line_count},
-                {error_count},
-                {warning_count},
-                CURRENT_TIMESTAMP()
-            )
-        """
-        
+        # Use parameterized insert to handle special characters
         try:
-            session.sql(insert_sql).collect()
+            # Create a DataFrame and write to table
+            from snowflake.snowpark.types import StructType, StructField, StringType, IntegerType, TimestampType
+            from snowflake.snowpark.functions import current_timestamp
+            
+            data = [(
+                run_id,
+                "dbt_o2c_enhanced",
+                target_env,
+                dbt_version,
+                dbt_command,
+                run_log,
+                len(run_log),
+                line_count,
+                error_count,
+                warning_count
+            )]
+            
+            schema = StructType([
+                StructField("RUN_ID", StringType()),
+                StructField("PROJECT_NAME", StringType()),
+                StructField("TARGET_ENVIRONMENT", StringType()),
+                StructField("DBT_VERSION", StringType()),
+                StructField("DBT_COMMAND", StringType()),
+                StructField("LOG_CONTENT", StringType()),
+                StructField("LOG_SIZE_BYTES", IntegerType()),
+                StructField("LOG_LINE_COUNT", IntegerType()),
+                StructField("ERROR_COUNT", IntegerType()),
+                StructField("WARNING_COUNT", IntegerType())
+            ])
+            
+            df = session.create_dataframe(data, schema)
+            df = df.with_column("ARCHIVED_AT", current_timestamp())
+            
+            df.write.mode("append").save_as_table("EDW.O2C_AUDIT.DBT_LOG_ARCHIVE")
+            
             archived_runs.append({
-                'run_id': run_id,
-                'bytes': len(run_log),
-                'lines': line_count,
-                'errors': error_count,
-                'warnings': warning_count
+                "run_id": run_id,
+                "bytes": len(run_log),
+                "lines": line_count,
+                "errors": error_count,
+                "warnings": warning_count
             })
         except Exception as e:
             return {
-                'status': 'error',
-                'message': f'Failed to insert run {run_id}: {str(e)}',
-                'archived_count': len(archived_runs)
+                "status": "error",
+                "message": f"Failed to insert run {run_id}: {str(e)}",
+                "archived_count": len(archived_runs)
             }
     
     return {
-        'status': 'success',
-        'archived_count': len(archived_runs),
-        'skipped_count': len(skipped_runs),
-        'archived_runs': archived_runs,
-        'skipped_runs': skipped_runs,
-        'total_runs_in_file': len(matches)
+        "status": "success",
+        "archived_count": len(archived_runs),
+        "skipped_count": len(skipped_runs),
+        "archived_runs": archived_runs,
+        "skipped_runs": skipped_runs,
+        "total_runs_in_file": len(matches)
     }
-$$;
+';
 
 -- Add comment
 COMMENT ON PROCEDURE EDW.O2C_AUDIT.ARCHIVE_DBT_LOG(VARCHAR) IS 
@@ -269,7 +277,7 @@ SELECT
     run_id,
     archived_at,
     error_count,
-    -- Extract error lines from log content
+    -- Extract first error line from log content
     REGEXP_SUBSTR(log_content, '\\[error\\s?\\].*', 1, 1, 'im') AS first_error
 FROM EDW.O2C_AUDIT.DBT_LOG_ARCHIVE
 WHERE error_count > 0
@@ -348,4 +356,3 @@ FROM EDW.O2C_AUDIT.DBT_LOG_ARCHIVE
 GROUP BY dbt_command
 ORDER BY run_count DESC;
 */
-
