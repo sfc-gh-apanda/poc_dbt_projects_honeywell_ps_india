@@ -1,7 +1,7 @@
 {{
     config(
         materialized='table',
-        snowflake_warehouse=get_warehouse(),
+        pre_hook="{{ switch_warehouse() }}",
         tags=['dimension', 'truncate_load', 'pattern_example']
     )
 }}
