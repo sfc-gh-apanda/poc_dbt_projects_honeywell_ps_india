@@ -1,7 +1,7 @@
 {{
     config(
         materialized='incremental',
-        snowflake_warehouse=get_warehouse(),
+        pre_hook="{{ switch_warehouse() }}",
         unique_key='reconciliation_key',
         incremental_strategy='merge',
         merge_update_columns=[

@@ -1,17 +1,16 @@
-{#- Determine if we need a pre-delete hook based on reload_source variable -#}
+{#- Build pre_hook list: always include switch_warehouse, conditionally include delete -#}
 {% set reload_source = var('reload_source', 'ALL') %}
-{% set pre_delete_hook = [] %}
+{% set pre_hooks = [switch_warehouse()] %}
 {% if reload_source != 'ALL' %}
-    {% set pre_delete_hook = ["DELETE FROM " ~ this ~ " WHERE source_system = '" ~ reload_source ~ "'"] %}
+    {% do pre_hooks.append("DELETE FROM " ~ this ~ " WHERE source_system = '" ~ reload_source ~ "'") %}
 {% endif %}
 
 {{
     config(
         materialized='incremental',
-        snowflake_warehouse=get_warehouse(),
         incremental_strategy='append',
         tags=['partitioned', 'pre_hook_delete', 'source_reload', 'pattern_example'],
-        pre_hook=pre_delete_hook
+        pre_hook=pre_hooks
     )
 }}
 

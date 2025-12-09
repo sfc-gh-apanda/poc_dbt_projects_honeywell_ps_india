@@ -1,7 +1,7 @@
 {{
     config(
         materialized='incremental',
-        snowflake_warehouse=get_warehouse(),
+        pre_hook="{{ switch_warehouse() }}",
         incremental_strategy='append',
         tags=['events', 'append_only', 'pattern_example']
     )
