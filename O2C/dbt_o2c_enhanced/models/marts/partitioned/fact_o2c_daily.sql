@@ -1,7 +1,6 @@
 {{
     config(
         materialized='incremental',
-        snowflake_warehouse=get_warehouse(),
         unique_key=['source_system', 'order_date', 'order_key'],
         incremental_strategy='delete+insert',
         incremental_predicates=[

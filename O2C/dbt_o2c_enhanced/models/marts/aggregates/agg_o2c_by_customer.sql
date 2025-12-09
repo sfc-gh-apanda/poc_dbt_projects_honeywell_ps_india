@@ -1,7 +1,6 @@
 {{
     config(
         materialized='table',
-        snowflake_warehouse=get_warehouse(),
         tags=['aggregate', 'truncate_load']
     )
 }}

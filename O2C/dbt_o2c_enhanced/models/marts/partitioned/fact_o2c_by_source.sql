@@ -8,7 +8,6 @@
 {{
     config(
         materialized='incremental',
-        snowflake_warehouse=get_warehouse(),
         incremental_strategy='append',
         tags=['partitioned', 'pre_hook_delete', 'source_reload', 'pattern_example'],
         pre_hook=pre_delete_hook
