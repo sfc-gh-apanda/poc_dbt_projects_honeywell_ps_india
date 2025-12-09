@@ -1,6 +1,7 @@
 {{
     config(
         materialized='view',
+        snowflake_warehouse=get_warehouse(),
         tags=['staging', 'invoices']
     )
 }}
