@@ -2,7 +2,8 @@
     config(
         materialized='view',
         snowflake_warehouse=get_warehouse(),
-        tags=['staging', 'orders']
+        tags=['staging', 'orders'],
+        query_tag='dbt_stg_enriched_orders'
     )
 }}
 

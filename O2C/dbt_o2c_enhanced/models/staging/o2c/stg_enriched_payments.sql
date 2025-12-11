@@ -2,7 +2,8 @@
     config(
         materialized='view',
         pre_hook="{{ switch_warehouse() }}",
-        tags=['staging', 'payments']
+        tags=['staging', 'payments'],
+        query_tag='dbt_stg_enriched_payments'
     )
 }}
 

@@ -10,7 +10,8 @@
         materialized='incremental',
         incremental_strategy='append',
         tags=['partitioned', 'pre_hook_delete', 'source_reload', 'pattern_example'],
-        pre_hook=pre_hooks
+        pre_hook=pre_hooks,
+        query_tag='dbt_fact_o2c_by_source'
     )
 }}
 

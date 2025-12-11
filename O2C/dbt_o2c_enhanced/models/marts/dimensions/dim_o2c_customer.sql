@@ -2,7 +2,8 @@
     config(
         materialized='table',
         pre_hook="{{ switch_warehouse() }}",
-        tags=['dimension', 'truncate_load', 'pattern_example']
+        tags=['dimension', 'truncate_load', 'pattern_example'],
+        query_tag='dbt_dim_o2c_customer'
     )
 }}
 

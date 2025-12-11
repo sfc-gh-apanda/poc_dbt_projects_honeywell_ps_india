@@ -3,7 +3,8 @@
         materialized='incremental',
         pre_hook="{{ switch_warehouse() }}",
         incremental_strategy='append',
-        tags=['events', 'append_only', 'pattern_example']
+        tags=['events', 'append_only', 'pattern_example'],
+        query_tag='dbt_fact_o2c_events'
     )
 }}
 

@@ -7,7 +7,8 @@
         incremental_predicates=[
             "DBT_INTERNAL_DEST.order_date >= DATEADD('day', -" ~ var('reload_days', 3) ~ ", CURRENT_DATE())"
         ],
-        tags=['partitioned', 'delete_insert', 'pattern_example']
+        tags=['partitioned', 'delete_insert', 'pattern_example'],
+        query_tag='dbt_fact_o2c_daily'
     )
 }}
 

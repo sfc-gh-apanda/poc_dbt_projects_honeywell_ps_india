@@ -2,7 +2,8 @@
     config(
         materialized='table',
         pre_hook="{{ switch_warehouse() }}",
-        tags=['aggregate', 'truncate_load']
+        tags=['aggregate', 'truncate_load'],
+        query_tag='dbt_agg_o2c_by_customer'
     )
 }}
 

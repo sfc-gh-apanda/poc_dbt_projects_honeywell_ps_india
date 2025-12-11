@@ -12,7 +12,8 @@
             'payment_timing', 'dbt_updated_at', 'dbt_run_id', 'dbt_batch_id',
             'dbt_loaded_at', 'dbt_source_model', 'dbt_environment', 'dbt_row_hash'
         ],
-        tags=['core', 'merge', 'upsert', 'pattern_example']
+        tags=['core', 'merge', 'upsert', 'pattern_example'],
+        query_tag='dbt_dm_o2c_reconciliation'
     )
 }}
 
