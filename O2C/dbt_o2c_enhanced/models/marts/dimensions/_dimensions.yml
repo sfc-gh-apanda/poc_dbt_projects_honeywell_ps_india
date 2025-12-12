@@ -6,6 +6,7 @@ models:
   # ═══════════════════════════════════════════════════════════════════════════════
   # Pattern: TABLE (full refresh on every run)
   # Audit: Full 7-column audit set (uniform across all layers)
+  # Contract: ENFORCED - Column names and types must match specification
   # Note: dbt_created_at = dbt_updated_at (full refresh)
   # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -17,6 +18,8 @@ models:
       
       Full table replacement on every dbt run. All rows are recreated,
       so dbt_created_at = dbt_updated_at for every record.
+      
+      **Contract:** ENFORCED - Ensures column names and types match specification
       
       **Audit Columns (7 uniform):**
       - dbt_run_id: dbt invocation ID
@@ -32,106 +35,132 @@ models:
     
     config:
       tags: ['dimension', 'truncate_load', 'pattern_example']
+      contract:
+        enforced: true
     
     columns:
       # Business Keys
       - name: customer_key
         description: "Surrogate key (customer_num_sk|source_system)"
+        data_type: varchar
         tests:
           - unique
           - not_null
       
       - name: source_system
         description: "Source ERP system"
+        data_type: varchar
         tests:
           - not_null
       
       - name: customer_id
         description: "Customer ID (natural key)"
+        data_type: varchar
         tests:
           - not_null
       
       # Attributes
       - name: customer_name
         description: "Customer name"
+        data_type: varchar
       
       - name: customer_type
         description: "Customer type (E=External, I=Internal)"
+        data_type: varchar
       
       - name: customer_country
         description: "Customer country code"
+        data_type: varchar
       
       - name: customer_country_name
         description: "Customer country full name"
+        data_type: varchar
       
       - name: customer_classification
         description: "Customer classification"
+        data_type: varchar
       
       - name: customer_account_group
         description: "Customer account group"
+        data_type: varchar
       
       # MDM Attributes
       - name: duns_number
         description: "DUNS number"
+        data_type: varchar
       
       - name: global_ultimate_duns
         description: "MDM Global Ultimate DUNS"
+        data_type: varchar
       
       - name: global_ultimate_name
         description: "MDM Global Ultimate Name"
+        data_type: varchar
       
       - name: full_name
         description: "MDM Full Name"
+        data_type: varchar
       
       # Derived
       - name: is_internal
         description: "Internal customer flag"
+        data_type: boolean
       
       # Source Tracking
       - name: source_load_ts
         description: "Source system load timestamp"
+        data_type: timestamp_ntz
       
       - name: source_update_ts
         description: "Source system update timestamp"
+        data_type: timestamp_ntz
       
       # Row Hash (for change detection)
       - name: dbt_row_hash
         description: "MD5 hash of business columns for change detection"
+        data_type: varchar
         tests:
           - not_null
       
       # Audit Columns (7 uniform columns)
       - name: dbt_run_id
         description: "dbt invocation ID"
+        data_type: varchar
         tests:
           - not_null
       
       - name: dbt_batch_id
         description: "Batch ID (unique per model per run)"
+        data_type: varchar
         tests:
           - not_null
       
       - name: dbt_loaded_at
         description: "Load timestamp"
+        data_type: timestamp_ntz
         tests:
           - not_null
       
       - name: dbt_created_at
         description: "Record creation timestamp (= dbt_updated_at for full refresh)"
+        data_type: timestamp_ntz
         tests:
           - not_null
       
       - name: dbt_updated_at
         description: "Record update timestamp"
+        data_type: timestamp_ntz
         tests:
           - not_null
       
       - name: dbt_source_model
         description: "Model name that created this record"
+        data_type: varchar
         tests:
           - not_null
       
       - name: dbt_environment
         description: "Target environment (dev/prod)"
+        data_type: varchar
         tests:
           - not_null

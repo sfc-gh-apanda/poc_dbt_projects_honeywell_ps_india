@@ -6,6 +6,7 @@ models:
   # ═══════════════════════════════════════════════════════════════════════════════
   # Pattern: TABLE (full refresh on every run)
   # Audit: Full 7-column audit set (dbt_created_at = dbt_updated_at)
+  # Contract: ENFORCED - Column names and types must match specification
   # ═══════════════════════════════════════════════════════════════════════════════
 
   - name: agg_o2c_by_customer
@@ -16,6 +17,8 @@ models:
       
       Pre-aggregated O2C metrics by customer for fast dashboard queries.
       Full table replacement on every run.
+      
+      **Contract:** ENFORCED - Ensures column names and types match specification
       
       **Audit Columns (7 uniform):**
       - dbt_run_id: dbt invocation ID
@@ -30,91 +33,117 @@ models:
     
     config:
       tags: ['aggregate', 'truncate_load']
+      contract:
+        enforced: true
     
     columns:
       # Customer Identity
       - name: source_system
         description: "Source ERP system"
+        data_type: varchar
         tests:
           - not_null
       
       - name: customer_id
         description: "Customer ID"
+        data_type: varchar
         tests:
           - not_null
       
       - name: customer_name
         description: "Customer name"
+        data_type: varchar
       
       - name: customer_type
         description: "Customer type"
+        data_type: varchar
       
       - name: customer_country
         description: "Customer country"
+        data_type: varchar
       
       # Volume Metrics
       - name: total_orders
         description: "Total number of orders"
+        data_type: number
       
       - name: total_invoices
         description: "Total number of invoices"
+        data_type: number
       
       - name: total_payments
         description: "Total number of payments"
+        data_type: number
       
       # Value Metrics
       - name: total_order_value
         description: "Sum of all order amounts"
+        data_type: number
       
       - name: total_invoice_value
         description: "Sum of all invoice amounts"
+        data_type: number
       
       - name: total_payment_value
         description: "Sum of all payment amounts"
+        data_type: number
       
       - name: total_outstanding
         description: "Total outstanding amount"
+        data_type: number
       
       # Performance Metrics
       - name: avg_dso
         description: "Average Days Sales Outstanding"
+        data_type: number
       
       - name: median_dso
         description: "Median Days Sales Outstanding"
+        data_type: number
       
       - name: max_dso
         description: "Maximum Days Sales Outstanding"
+        data_type: number
       
       # Payment Behavior
       - name: on_time_payments
         description: "Count of on-time payments"
+        data_type: number
       
       - name: late_payments
         description: "Count of late payments"
+        data_type: number
       
       - name: overdue_count
         description: "Count of overdue items"
+        data_type: number
       
       # Date Range
       - name: first_order_date
         description: "Date of first order"
+        data_type: date
       
       - name: last_order_date
         description: "Date of most recent order"
+        data_type: date
       
       # Calculated Rates
       - name: billing_rate_pct
         description: "Invoices / Orders percentage"
+        data_type: number
       
       - name: collection_rate_pct
         description: "Payments / Invoices percentage"
+        data_type: number
       
       - name: on_time_payment_pct
         description: "On-time payments percentage"
+        data_type: number
       
       # Classification
       - name: payment_behavior
         description: "Customer payment behavior classification (EXCELLENT, GOOD, FAIR, POOR)"
+        data_type: varchar
         tests:
           - accepted_values:
               values: ['EXCELLENT', 'GOOD', 'FAIR', 'POOR']
@@ -122,36 +151,42 @@ models:
       # Audit Columns (7 uniform columns)
       - name: dbt_run_id
         description: "dbt invocation ID"
+        data_type: varchar
         tests:
           - not_null
       
       - name: dbt_batch_id
         description: "Batch ID (unique per model per run)"
+        data_type: varchar
         tests:
           - not_null
       
       - name: dbt_loaded_at
         description: "Load timestamp"
+        data_type: timestamp_ntz
         tests:
           - not_null
       
       - name: dbt_created_at
         description: "Record creation timestamp (= dbt_updated_at for full refresh)"
+        data_type: timestamp_ntz
         tests:
           - not_null
       
       - name: dbt_updated_at
         description: "Record update timestamp"
+        data_type: timestamp_ntz
         tests:
           - not_null
       
       - name: dbt_source_model
         description: "Model name that created this record"
+        data_type: varchar
         tests:
           - not_null
       
       - name: dbt_environment
         description: "Target environment (dev/prod)"
+        data_type: varchar
         tests:
           - not_null
-

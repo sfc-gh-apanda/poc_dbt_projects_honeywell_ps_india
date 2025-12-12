@@ -6,6 +6,7 @@ models:
   # ═══════════════════════════════════════════════════════════════════════════════
   # Pattern: INCREMENTAL with append strategy
   # Audit: Full 7-column audit set (dbt_created_at = dbt_updated_at for append)
+  # Contract: ENFORCED - Column names and types must match specification
   # Note: Run with --full-refresh if audit columns are missing from existing table
   # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -18,6 +19,9 @@ models:
       Captures order, invoice, and payment events as an immutable event log.
       - New events: INSERTED only
       - Existing events: NEVER updated
+      
+      **Contract:** ENFORCED - Ensures column names and types match target table
+      **Schema Change:** FAIL - Prevents accidental column name mismatches
       
       **Note:** Event ID is NOT unique across runs (same events may be appended 
       if data is reprocessed). Use event_id + dbt_batch_id for true uniqueness.
@@ -35,16 +39,20 @@ models:
     
     config:
       tags: ['events', 'append_only', 'pattern_example']
+      contract:
+        enforced: true
     
     columns:
       # Event Identity
       - name: event_id
         description: "Event ID (MD5 hash of source_system|entity_id|event_type). NOT unique across runs."
+        data_type: varchar
         tests:
           - not_null
       
       - name: event_type
         description: "Event type (ORDER_CREATED, INVOICE_CREATED, PAYMENT_RECEIVED)"
+        data_type: varchar
         tests:
           - not_null
           - accepted_values:
@@ -52,17 +60,20 @@ models:
       
       - name: source_system
         description: "Source ERP system"
+        data_type: varchar
         tests:
           - not_null
       
       # Entity Reference
       - name: entity_id
         description: "ID of the entity (order_id, invoice_id, payment_id)"
+        data_type: varchar
         tests:
           - not_null
       
       - name: entity_type
         description: "Entity type (ORDER, INVOICE, PAYMENT)"
+        data_type: varchar
         tests:
           - not_null
           - accepted_values:
@@ -71,56 +82,69 @@ models:
       # Event Details
       - name: event_timestamp
         description: "When the event occurred"
+        data_type: date
         tests:
           - not_null
       
       - name: event_amount
         description: "Amount associated with the event"
+        data_type: number
       
       - name: customer_id
         description: "Customer ID (for order events)"
+        data_type: varchar
       
       - name: customer_name
         description: "Customer name (for order events)"
+        data_type: varchar
       
       - name: event_status
         description: "Status at time of event"
+        data_type: varchar
       
       - name: event_description
         description: "Human-readable event description"
+        data_type: varchar
       
       # Audit Columns (7 uniform columns)
       - name: dbt_run_id
         description: "dbt invocation ID"
+        data_type: varchar
         tests:
           - not_null
       
       - name: dbt_batch_id
         description: "Batch ID (unique per model per run)"
+        data_type: varchar
         tests:
           - not_null
       
       - name: dbt_loaded_at
         description: "Load timestamp"
+        data_type: timestamp_ntz
         tests:
           - not_null
       
       - name: dbt_created_at
         description: "Record creation timestamp (= dbt_updated_at for append)"
+        data_type: timestamp_ntz
         tests:
           - not_null
       
       - name: dbt_updated_at
         description: "Record update timestamp (= dbt_created_at for append)"
+        data_type: timestamp_ntz
         tests:
           - not_null
       
       - name: dbt_source_model
         description: "Model name that created this record"
+        data_type: varchar
         tests:
           - not_null
       
       - name: dbt_environment
         description: "Target environment (dev/prod)"
+        data_type: varchar
         tests:
           - not_null

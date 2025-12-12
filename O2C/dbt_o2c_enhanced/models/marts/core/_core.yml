@@ -6,6 +6,7 @@ models:
   # ═══════════════════════════════════════════════════════════════════════════════
   # Pattern: INCREMENTAL with merge strategy
   # Audit: Full 7-column audit set (dbt_created_at preserved for existing rows)
+  # Contract: ENFORCED - Column names and types must match specification
   # ═══════════════════════════════════════════════════════════════════════════════
 
   - name: dm_o2c_reconciliation
@@ -17,6 +18,9 @@ models:
       Joins orders, invoices, and payments into a complete O2C view.
       - New records: INSERT with current dbt_created_at
       - Existing records: UPDATE with original dbt_created_at preserved
+      
+      **Contract:** ENFORCED - Ensures column names and types match target table
+      **Schema Change:** FAIL - Prevents accidental column name mismatches
       
       **Audit Columns (7 uniform):**
       - dbt_run_id: dbt invocation ID (updated on every run)
@@ -32,128 +36,200 @@ models:
     
     config:
       tags: ['core', 'merge', 'upsert', 'pattern_example']
+      contract:
+        enforced: true
     
     columns:
       # Keys
-      - name: reconciliation_key
-        description: "Composite key (MD5 of order_key + invoice_key + payment_key)"
-        tests:
-          - unique
-          - not_null
-      
       - name: source_system
         description: "Source ERP system"
+        data_type: varchar
         tests:
           - not_null
       
       - name: order_key
         description: "Order surrogate key"
+        data_type: varchar
         tests:
           - not_null
       
       - name: invoice_key
         description: "Invoice surrogate key (or 'NOT_INVOICED')"
+        data_type: varchar
         tests:
           - not_null
       
       - name: payment_key
         description: "Payment surrogate key (or 'NOT_PAID')"
+        data_type: varchar
         tests:
+          - not_null
+      
+      - name: reconciliation_key
+        description: "Composite key (MD5 of order_key + invoice_key + payment_key)"
+        data_type: varchar
+        tests:
+          - unique
           - not_null
       
       # Order Details
       - name: order_id
         description: "Order ID"
+        data_type: varchar
+      
       - name: order_line
         description: "Order line number"
+        data_type: number
+      
       - name: order_number
         description: "Order number"
+        data_type: varchar
+      
       - name: order_date
         description: "Order date"
+        data_type: date
+      
       - name: order_quantity
         description: "Order quantity"
+        data_type: number
+      
       - name: order_amount
         description: "Order amount"
+        data_type: number
+      
       - name: order_currency
         description: "Order currency"
+        data_type: varchar
+      
       - name: order_status
         description: "Order status"
+        data_type: varchar
       
       # Customer (from staging enrichment)
       - name: customer_id
         description: "Customer ID"
+        data_type: varchar
+      
       - name: customer_name
         description: "Customer name"
+        data_type: varchar
+      
       - name: customer_type
         description: "Customer type"
+        data_type: varchar
+      
       - name: customer_country
         description: "Customer country"
+        data_type: varchar
       
       # Invoice Details
       - name: invoice_id
         description: "Invoice ID"
+        data_type: varchar
+      
       - name: invoice_number
         description: "Invoice number"
+        data_type: varchar
+      
       - name: invoice_date
         description: "Invoice date"
+        data_type: date
+      
       - name: invoice_amount
         description: "Invoice amount"
+        data_type: number
+      
       - name: invoice_status
         description: "Invoice status"
+        data_type: varchar
       
       # Payment Terms
       - name: payment_terms_code
         description: "Payment terms code"
+        data_type: varchar
+      
       - name: payment_terms_name
         description: "Payment terms name"
+        data_type: varchar
+      
       - name: payment_terms_days
         description: "Payment terms days"
+        data_type: number
+      
       - name: due_date
         description: "Calculated due date"
+        data_type: date
       
       # Payment Details
       - name: payment_id
         description: "Payment ID"
+        data_type: varchar
+      
       - name: payment_reference
         description: "Payment reference"
+        data_type: varchar
+      
       - name: payment_date
         description: "Payment date"
+        data_type: date
+      
       - name: payment_amount
         description: "Payment amount"
+        data_type: number
+      
       - name: payment_status
         description: "Payment status"
+        data_type: varchar
+      
       - name: cleared_flag
         description: "Payment cleared flag"
+        data_type: boolean
       
       # Bank (from staging enrichment)
       - name: bank_name
         description: "Bank name"
+        data_type: varchar
+      
       - name: bank_country
         description: "Bank country"
+        data_type: varchar
       
       # Calculated Metrics
       - name: days_order_to_invoice
         description: "Days from order to invoice"
+        data_type: number
+      
       - name: days_invoice_to_payment
         description: "Days from invoice to payment"
+        data_type: number
+      
       - name: days_order_to_cash
         description: "Days Sales Outstanding (DSO)"
+        data_type: number
+      
       - name: days_past_due
         description: "Days past due date"
+        data_type: number
+      
       - name: unbilled_amount
         description: "Order amount - Invoice amount"
+        data_type: number
+      
       - name: outstanding_amount
         description: "Invoice amount - Payment amount"
+        data_type: number
       
       # Status
       - name: reconciliation_status
         description: "NOT_INVOICED, NOT_PAID, OPEN, CLOSED"
+        data_type: varchar
         tests:
           - accepted_values:
               values: ['NOT_INVOICED', 'NOT_PAID', 'OPEN', 'CLOSED']
       
       - name: payment_timing
         description: "OVERDUE, CURRENT, ON_TIME, LATE"
+        data_type: varchar
         tests:
           - accepted_values:
               values: ['OVERDUE', 'CURRENT', 'ON_TIME', 'LATE']
@@ -161,42 +237,49 @@ models:
       # Row Hash
       - name: dbt_row_hash
         description: "MD5 hash for change detection"
+        data_type: varchar
         tests:
           - not_null
       
       # Audit Columns (7 uniform columns)
       - name: dbt_run_id
         description: "dbt invocation ID"
+        data_type: varchar
         tests:
           - not_null
       
       - name: dbt_batch_id
         description: "Batch ID (unique per model per run)"
+        data_type: varchar
         tests:
           - not_null
       
       - name: dbt_loaded_at
         description: "Load timestamp"
+        data_type: timestamp_ntz
         tests:
           - not_null
       
       - name: dbt_created_at
         description: "Record creation timestamp (PRESERVED on updates)"
+        data_type: timestamp_ntz
         tests:
           - not_null
       
       - name: dbt_updated_at
         description: "Record update timestamp (always current)"
+        data_type: timestamp_ntz
         tests:
           - not_null
       
       - name: dbt_source_model
         description: "Model name that created this record"
+        data_type: varchar
         tests:
           - not_null
       
       - name: dbt_environment
         description: "Target environment (dev/prod)"
+        data_type: varchar
         tests:
           - not_null
-

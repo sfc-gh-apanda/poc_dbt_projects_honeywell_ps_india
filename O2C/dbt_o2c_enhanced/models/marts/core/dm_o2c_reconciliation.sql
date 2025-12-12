@@ -4,6 +4,7 @@
         pre_hook="{{ switch_warehouse() }}",
         unique_key='reconciliation_key',
         incremental_strategy='merge',
+        on_schema_change='fail',
         merge_update_columns=[
             'invoice_key', 'payment_key', 'invoice_date', 'invoice_amount',
             'payment_date', 'payment_amount', 'days_order_to_invoice',
