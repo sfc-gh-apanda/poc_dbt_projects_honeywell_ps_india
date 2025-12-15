@@ -29,8 +29,6 @@ Execution:
         target_database='EDW',
         target_schema='O2C_ENHANCED_SNAPSHOTS',
         unique_key='customer_num_sk',
-        
-        -- Strategy: Compare columns to detect changes
         strategy='check',
         check_cols=[
             'customer_name',
@@ -44,22 +42,16 @@ Execution:
             'mdm_customer_global_ultimate_name',
             'mdm_customer_full_name'
         ],
-        
-        -- CRITICAL: Soft delete - when record disappears, close it, don't delete
         invalidate_hard_deletes=True
     )
 }}
 
 SELECT
-    -- ═══════════════════════════════════════════════════════════════
-    -- PRIMARY KEY
-    -- ═══════════════════════════════════════════════════════════════
+    -- Primary Key
     customer_num_sk,
     source_system,
     
-    -- ═══════════════════════════════════════════════════════════════
-    -- BUSINESS ATTRIBUTES (tracked for changes)
-    -- ═══════════════════════════════════════════════════════════════
+    -- Business Attributes (tracked for changes)
     customer_name,
     customer_type,
     customer_country,
@@ -73,22 +65,14 @@ SELECT
     mdm_customer_global_ultimate_name,
     mdm_customer_full_name,
     
-    -- ═══════════════════════════════════════════════════════════════
-    -- SOURCE SYSTEM ACTIVE FLAG (if available)
-    -- ═══════════════════════════════════════════════════════════════
-    -- If your source has an active/inactive flag, include it here
-    -- COALESCE(is_active, TRUE) AS source_is_active,
-    TRUE AS source_is_active,  -- Default to active if no flag in source
+    -- Source system active flag
+    TRUE AS source_is_active,
     
-    -- ═══════════════════════════════════════════════════════════════
-    -- SOURCE TIMESTAMPS
-    -- ═══════════════════════════════════════════════════════════════
+    -- Source timestamps
     load_ts AS source_load_ts,
     update_ts AS source_update_ts,
     
-    -- ═══════════════════════════════════════════════════════════════
-    -- SNAPSHOT METADATA
-    -- ═══════════════════════════════════════════════════════════════
+    -- Snapshot metadata
     '{{ invocation_id }}' AS dbt_snapshot_run_id,
     CURRENT_TIMESTAMP() AS dbt_snapshot_at
 
@@ -97,4 +81,3 @@ FROM {{ source('corp_master', 'DIM_CUSTOMER') }}
 WHERE customer_num_sk IS NOT NULL
 
 {% endsnapshot %}
-
