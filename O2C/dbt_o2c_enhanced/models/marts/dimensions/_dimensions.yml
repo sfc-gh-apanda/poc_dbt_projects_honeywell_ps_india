@@ -2,165 +2,256 @@ version: 2
 
 models:
   # ═══════════════════════════════════════════════════════════════════════════════
-  # DIMENSION LAYER - Customer Dimension (Truncate & Load)
+  # DIMENSION LAYER - Customer Dimension (SCD-2 with Soft Delete)
   # ═══════════════════════════════════════════════════════════════════════════════
-  # Pattern: TABLE (full refresh on every run)
-  # Audit: Full 7-column audit set (uniform across all layers)
-  # Contract: ENFORCED - Column names and types must match specification
-  # Note: dbt_created_at = dbt_updated_at (full refresh)
+  # Pattern: SCD-2 built on dbt snapshot
+  # Features:
+  #   - Full history preservation
+  #   - Soft delete (is_deleted, deleted_at)
+  #   - Industry standard columns (is_current, is_active, record_status)
+  #   - Point-in-time query support
+  #
+  # Prerequisites:
+  #   Run snapshot first: dbt snapshot --select snap_customer
   # ═══════════════════════════════════════════════════════════════════════════════
 
   - name: dim_o2c_customer
     description: |
-      **Customer Dimension**
+      **Customer Dimension (SCD-2 with Soft Delete)**
       
-      **Data Load Pattern:** TRUNCATE & LOAD (materialized='table')
+      **Data Load Pattern:** SCD-2 based on dbt snapshot
       
-      Full table replacement on every dbt run. All rows are recreated,
-      so dbt_created_at = dbt_updated_at for every record.
+      Tracks all historical changes to customer data. When a customer is 
+      deleted from source, the record is soft-deleted (is_deleted=TRUE),
+      never physically removed.
       
-      **Contract:** ENFORCED - Ensures column names and types match specification
+      **Key Columns:**
+      | Column | Description |
+      |--------|-------------|
+      | is_current | TRUE = Latest version of this customer |
+      | is_active | TRUE = Active in current business operations |
+      | is_deleted | TRUE = Removed from source (soft delete) |
+      | record_status | ACTIVE, INACTIVE, DELETED, HISTORICAL |
       
-      **Audit Columns (7 uniform):**
-      - dbt_run_id: dbt invocation ID
-      - dbt_batch_id: Unique per model per run
-      - dbt_loaded_at: Load timestamp
-      - dbt_created_at: Record creation timestamp (= dbt_updated_at)
-      - dbt_updated_at: Record update timestamp
-      - dbt_source_model: Model name
-      - dbt_environment: Target environment (dev/prod)
-      - dbt_row_hash: Change detection hash (bonus column)
+      **Query Patterns:**
+      ```sql
+      -- Current active customers only
+      SELECT * FROM dim_o2c_customer WHERE is_current AND is_active;
+      
+      -- All current customers (including deleted)
+      SELECT * FROM dim_o2c_customer WHERE is_current;
+      
+      -- Point-in-time: Customer as of specific date
+      SELECT * FROM dim_o2c_customer 
+      WHERE '2024-06-15' BETWEEN dbt_valid_from 
+        AND COALESCE(dbt_valid_to, '9999-12-31');
+      
+      -- Audit: Recently deleted customers
+      SELECT * FROM dim_o2c_customer 
+      WHERE is_deleted ORDER BY deleted_at DESC;
+      ```
+      
+      **Prerequisites:** Run snapshot first
+      ```bash
+      dbt snapshot --select snap_customer
+      dbt run --select dim_o2c_customer
+      ```
     
     access: public
     
     config:
-      tags: ['dimension', 'truncate_load', 'pattern_example']
-      contract:
-        enforced: true
+      tags: ['dimension', 'scd2', 'soft_delete', 'pattern_example']
+      # Note: contract removed as SCD-2 columns have dynamic types
     
     columns:
-      # Business Keys
+      # ═══════════════════════════════════════════════════════════════
+      # KEYS
+      # ═══════════════════════════════════════════════════════════════
       - name: customer_key
-        description: "Surrogate key (customer_num_sk|source_system)"
-        data_type: varchar
+        description: "Surrogate key (customer_id|source|valid_from) - unique per version"
         tests:
           - unique
           - not_null
       
+      - name: customer_business_key
+        description: "Business key (customer_id|source) - use with is_current=TRUE for joins"
+        tests:
+          - not_null
+      
       - name: source_system
-        description: "Source ERP system"
-        data_type: varchar
+        description: "Source ERP system (BRP, CIP, EEP, etc.)"
         tests:
           - not_null
       
       - name: customer_id
-        description: "Customer ID (natural key)"
-        data_type: varchar
+        description: "Customer ID (natural key from source)"
         tests:
           - not_null
       
-      # Attributes
+      # ═══════════════════════════════════════════════════════════════
+      # BUSINESS ATTRIBUTES
+      # ═══════════════════════════════════════════════════════════════
       - name: customer_name
-        description: "Customer name"
-        data_type: varchar
+        description: "Customer legal name"
       
       - name: customer_type
         description: "Customer type (E=External, I=Internal)"
-        data_type: varchar
       
       - name: customer_country
-        description: "Customer country code"
-        data_type: varchar
+        description: "Customer country code (ISO)"
       
       - name: customer_country_name
         description: "Customer country full name"
-        data_type: varchar
       
       - name: customer_classification
-        description: "Customer classification"
-        data_type: varchar
+        description: "Customer classification code"
       
       - name: customer_account_group
         description: "Customer account group"
-        data_type: varchar
       
-      # MDM Attributes
+      # ═══════════════════════════════════════════════════════════════
+      # MDM ATTRIBUTES
+      # ═══════════════════════════════════════════════════════════════
       - name: duns_number
-        description: "DUNS number"
-        data_type: varchar
+        description: "D&B DUNS number"
       
       - name: global_ultimate_duns
-        description: "MDM Global Ultimate DUNS"
-        data_type: varchar
+        description: "MDM Global Ultimate DUNS number"
       
       - name: global_ultimate_name
-        description: "MDM Global Ultimate Name"
-        data_type: varchar
+        description: "MDM Global Ultimate company name"
       
       - name: full_name
-        description: "MDM Full Name"
-        data_type: varchar
+        description: "MDM Full customer name"
       
-      # Derived
+      # ═══════════════════════════════════════════════════════════════
+      # DERIVED FLAGS
+      # ═══════════════════════════════════════════════════════════════
       - name: is_internal
-        description: "Internal customer flag"
-        data_type: boolean
+        description: "TRUE if internal customer (customer_type='I')"
       
-      # Source Tracking
-      - name: source_load_ts
-        description: "Source system load timestamp"
-        data_type: timestamp_ntz
-      
-      - name: source_update_ts
-        description: "Source system update timestamp"
-        data_type: timestamp_ntz
-      
-      # Row Hash (for change detection)
-      - name: dbt_row_hash
-        description: "MD5 hash of business columns for change detection"
-        data_type: varchar
+      # ═══════════════════════════════════════════════════════════════
+      # SCD-2 VALIDITY COLUMNS (from dbt snapshot)
+      # ═══════════════════════════════════════════════════════════════
+      - name: dbt_valid_from
+        description: "SCD-2: When this version became effective"
         tests:
           - not_null
       
-      # Audit Columns (7 uniform columns)
+      - name: dbt_valid_to
+        description: "SCD-2: When this version ended (NULL = current version)"
+      
+      - name: dbt_scd_id
+        description: "dbt snapshot unique version ID"
+        tests:
+          - unique
+          - not_null
+      
+      - name: dbt_snapshot_updated_at
+        description: "When snapshot last processed this record"
+      
+      # ═══════════════════════════════════════════════════════════════
+      # SOFT DELETE & STATUS COLUMNS (Industry Standard)
+      # ═══════════════════════════════════════════════════════════════
+      - name: is_current
+        description: |
+          **Is this the latest version of this customer?**
+          - TRUE: This is the most recent version
+          - FALSE: This is a historical version (superseded)
+          
+          Use for joins: WHERE is_current = TRUE
+        tests:
+          - not_null
+      
+      - name: is_active
+        description: |
+          **Is this customer active in business operations?**
+          - TRUE: Current version AND source_is_active AND not deleted
+          - FALSE: Historical, inactive in source, or deleted
+          
+          Use for active customer queries: WHERE is_current AND is_active
+        tests:
+          - not_null
+      
+      - name: is_deleted
+        description: |
+          **Was this customer soft-deleted (removed from source)?**
+          - TRUE: Record was in source, now gone (soft delete)
+          - FALSE: Record still exists in source
+          
+          Only the final version before deletion has is_deleted=TRUE
+        tests:
+          - not_null
+      
+      - name: deleted_at
+        description: |
+          **When was this customer soft-deleted?**
+          - Timestamp when record disappeared from source
+          - NULL if not deleted
+      
+      - name: record_status
+        description: |
+          **Comprehensive lifecycle status:**
+          - ACTIVE: Current version, active in source
+          - INACTIVE: Current version, marked inactive in source
+          - DELETED: Removed from source (soft delete)
+          - HISTORICAL: Old version, superseded by newer version
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['ACTIVE', 'INACTIVE', 'DELETED', 'HISTORICAL']
+      
+      # ═══════════════════════════════════════════════════════════════
+      # SOURCE TRACKING
+      # ═══════════════════════════════════════════════════════════════
+      - name: source_load_ts
+        description: "Source system load timestamp"
+      
+      - name: source_update_ts
+        description: "Source system update timestamp"
+      
+      # ═══════════════════════════════════════════════════════════════
+      # CHANGE DETECTION
+      # ═══════════════════════════════════════════════════════════════
+      - name: dbt_row_hash
+        description: "MD5 hash of business columns for downstream change detection"
+        tests:
+          - not_null
+      
+      # ═══════════════════════════════════════════════════════════════
+      # AUDIT COLUMNS (Standard 7-column set)
+      # ═══════════════════════════════════════════════════════════════
       - name: dbt_run_id
         description: "dbt invocation ID"
-        data_type: varchar
         tests:
           - not_null
       
       - name: dbt_batch_id
         description: "Batch ID (unique per model per run)"
-        data_type: varchar
         tests:
           - not_null
       
       - name: dbt_loaded_at
-        description: "Load timestamp"
-        data_type: timestamp_ntz
+        description: "When this dimension table was refreshed"
         tests:
           - not_null
       
       - name: dbt_created_at
-        description: "Record creation timestamp (= dbt_updated_at for full refresh)"
-        data_type: timestamp_ntz
+        description: "Record creation timestamp"
         tests:
           - not_null
       
       - name: dbt_updated_at
         description: "Record update timestamp"
-        data_type: timestamp_ntz
         tests:
           - not_null
       
       - name: dbt_source_model
         description: "Model name that created this record"
-        data_type: varchar
         tests:
           - not_null
       
       - name: dbt_environment
         description: "Target environment (dev/prod)"
-        data_type: varchar
         tests:
           - not_null

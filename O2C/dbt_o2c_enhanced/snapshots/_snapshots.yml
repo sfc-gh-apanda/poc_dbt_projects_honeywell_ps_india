@@ -1,0 +1,92 @@
+version: 2
+
+snapshots:
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # SNAPSHOTS - SCD-2 Historical Tracking with Soft Delete
+  # ═══════════════════════════════════════════════════════════════════════════════
+  #
+  # Purpose:
+  #   Snapshots capture historical changes to dimension data using SCD-2 pattern.
+  #   When a record is deleted from source, it's marked as ended (soft delete),
+  #   not physically removed.
+  #
+  # Execution:
+  #   dbt snapshot                          -- Run all snapshots
+  #   dbt snapshot --select snap_customer   -- Run specific snapshot
+  #
+  # Auto-generated columns by dbt:
+  #   - dbt_scd_id      : Unique identifier for each version
+  #   - dbt_valid_from  : When this version became active
+  #   - dbt_valid_to    : When this version ended (NULL = current)
+  #   - dbt_updated_at  : When snapshot was last processed
+  #
+  # ═══════════════════════════════════════════════════════════════════════════════
+
+  - name: snap_customer
+    description: |
+      **Customer Dimension Snapshot (SCD-2 with Soft Delete)**
+      
+      Tracks all historical changes to customer master data.
+      
+      **Key Features:**
+      - Full history preservation (no data loss)
+      - Soft delete: When customer removed from source, record is closed (not deleted)
+      - Point-in-time queries supported via dbt_valid_from/dbt_valid_to
+      
+      **Change Detection:**
+      Monitors these columns for changes:
+      - customer_name, customer_type, customer_country
+      - customer_classification, customer_account_group
+      - MDM attributes (DUNS, global ultimate)
+      
+      **Usage:**
+      ```sql
+      -- Current active customers
+      SELECT * FROM snap_customer WHERE dbt_valid_to IS NULL;
+      
+      -- Customer as of specific date
+      SELECT * FROM snap_customer 
+      WHERE '2024-01-15' BETWEEN dbt_valid_from 
+        AND COALESCE(dbt_valid_to, '9999-12-31');
+      ```
+    
+    config:
+      tags: ['snapshot', 'scd2', 'customer', 'soft_delete']
+    
+    columns:
+      - name: customer_num_sk
+        description: "Customer surrogate key from source"
+        tests:
+          - not_null
+      
+      - name: source_system
+        description: "Source ERP system (BRP, CIP, etc.)"
+        tests:
+          - not_null
+      
+      - name: customer_name
+        description: "Customer legal name"
+      
+      - name: customer_type
+        description: "Customer type (I=Internal, E=External)"
+      
+      - name: source_is_active
+        description: "Active flag from source system (default TRUE)"
+      
+      - name: dbt_scd_id
+        description: "Unique identifier for this version (auto-generated)"
+        tests:
+          - unique
+          - not_null
+      
+      - name: dbt_valid_from
+        description: "When this version became effective (auto-generated)"
+        tests:
+          - not_null
+      
+      - name: dbt_valid_to
+        description: "When this version ended - NULL means current (auto-generated)"
+      
+      - name: dbt_updated_at
+        description: "Last snapshot processing time (auto-generated)"
+
