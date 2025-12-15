@@ -38,6 +38,7 @@ models:
     
     config:
       tags: ['partitioned', 'delete_insert', 'pattern_example']
+      on_schema_change: 'fail'
       contract:
         enforced: true
     
@@ -208,6 +209,7 @@ models:
     
     config:
       tags: ['partitioned', 'pre_hook_delete', 'source_reload', 'pattern_example']
+      on_schema_change: 'fail'
       contract:
         enforced: true
     

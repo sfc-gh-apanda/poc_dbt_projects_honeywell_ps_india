@@ -39,6 +39,7 @@ models:
     
     config:
       tags: ['events', 'append_only', 'pattern_example']
+      on_schema_change: 'fail'
       contract:
         enforced: true
     
