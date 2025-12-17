@@ -25,17 +25,15 @@ models:
         enforced: true
     columns:
       # Business Keys
-      - name: order_key
-        description: "Surrogate key (source_system|order_id|order_line)"
-        data_type: varchar
-        tests:
-          - not_null
-      
       - name: source_system
         description: "Source ERP system"
         data_type: varchar
         tests:
           - not_null
+      
+      - name: company_code
+        description: "Company code"
+        data_type: varchar
       
       - name: order_id
         description: "Order ID"
@@ -46,6 +44,12 @@ models:
       - name: order_line
         description: "Order line number"
         data_type: number
+      
+      - name: order_key
+        description: "Surrogate key (source_system|order_id|order_line)"
+        data_type: varchar
+        tests:
+          - not_null
       
       # Order Details
       - name: order_number
@@ -91,6 +95,15 @@ models:
       
       - name: customer_country_name
         description: "Customer country name"
+        data_type: varchar
+      
+      # Organizational
+      - name: sales_org
+        description: "Sales organization"
+        data_type: varchar
+      
+      - name: profit_center
+        description: "Profit center"
         data_type: varchar
       
       # Audit Columns (7 uniform columns)
@@ -152,26 +165,42 @@ models:
         enforced: true
     columns:
       # Business Keys
-      - name: invoice_key
-        description: "Surrogate key (source_system|invoice_id|invoice_line)"
-        data_type: varchar
-        tests:
-          - not_null
-      
-      - name: order_key
-        description: "Related order key"
-        data_type: varchar
-        tests:
-          - not_null
-      
       - name: source_system
         description: "Source ERP system"
         data_type: varchar
         tests:
           - not_null
       
+      - name: company_code
+        description: "Company code"
+        data_type: varchar
+      
       - name: invoice_id
         description: "Invoice ID"
+        data_type: varchar
+        tests:
+          - not_null
+      
+      - name: invoice_line
+        description: "Invoice line number"
+        data_type: number
+      
+      - name: invoice_key
+        description: "Surrogate key (source_system|invoice_id|invoice_line)"
+        data_type: varchar
+        tests:
+          - not_null
+      
+      - name: order_id
+        description: "Related order ID"
+        data_type: varchar
+      
+      - name: order_line
+        description: "Related order line"
+        data_type: number
+      
+      - name: order_key
+        description: "Related order key"
         data_type: varchar
         tests:
           - not_null
@@ -185,9 +214,21 @@ models:
         description: "Invoice date"
         data_type: date
       
+      - name: posting_date
+        description: "Posting date"
+        data_type: date
+      
+      - name: invoice_quantity
+        description: "Invoice quantity"
+        data_type: number
+      
       - name: invoice_amount
         description: "Invoice amount (local currency)"
         data_type: number
+      
+      - name: invoice_currency
+        description: "Invoice currency code"
+        data_type: varchar
       
       - name: invoice_status
         description: "Invoice status"
@@ -269,26 +310,38 @@ models:
         enforced: true
     columns:
       # Business Keys
-      - name: payment_key
-        description: "Surrogate key (source_system|payment_id)"
-        data_type: varchar
-        tests:
-          - not_null
-      
-      - name: invoice_key
-        description: "Related invoice key"
-        data_type: varchar
-        tests:
-          - not_null
-      
       - name: source_system
         description: "Source ERP system"
         data_type: varchar
         tests:
           - not_null
       
+      - name: company_code
+        description: "Company code"
+        data_type: varchar
+      
       - name: payment_id
         description: "Payment ID"
+        data_type: varchar
+        tests:
+          - not_null
+      
+      - name: payment_key
+        description: "Surrogate key (source_system|payment_id)"
+        data_type: varchar
+        tests:
+          - not_null
+      
+      - name: invoice_id
+        description: "Related invoice ID"
+        data_type: varchar
+      
+      - name: invoice_line
+        description: "Related invoice line"
+        data_type: number
+      
+      - name: invoice_key
+        description: "Related invoice key"
         data_type: varchar
         tests:
           - not_null
@@ -302,9 +355,17 @@ models:
         description: "Payment date"
         data_type: date
       
+      - name: clearing_date
+        description: "Clearing date"
+        data_type: date
+      
       - name: payment_amount
         description: "Payment amount (local currency)"
         data_type: number
+      
+      - name: payment_currency
+        description: "Payment currency code"
+        data_type: varchar
       
       - name: payment_status
         description: "Payment status"
