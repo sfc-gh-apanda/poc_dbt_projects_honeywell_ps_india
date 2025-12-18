@@ -221,6 +221,10 @@ models:
         tests:
           - not_null
       
+      - name: company_code
+        description: "Company code"
+        data_type: varchar
+      
       # Keys
       - name: order_key
         description: "Order surrogate key"
@@ -257,6 +261,15 @@ models:
       
       - name: order_status
         description: "Order status"
+        data_type: varchar
+      
+      # Organizational
+      - name: sales_org
+        description: "Sales organization"
+        data_type: varchar
+      
+      - name: profit_center
+        description: "Profit center"
         data_type: varchar
       
       # Audit Columns (7 uniform columns)
