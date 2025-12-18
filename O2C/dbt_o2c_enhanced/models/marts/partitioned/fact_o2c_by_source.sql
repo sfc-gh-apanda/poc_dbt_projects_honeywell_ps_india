@@ -47,6 +47,7 @@ Audit: Full audit columns (uniform set - pre-hook delete so created = updated)
 WITH source_data AS (
     SELECT
         source_system,
+        company_code,
         order_key,
         order_id,
         order_date,
@@ -54,7 +55,9 @@ WITH source_data AS (
         customer_name,
         order_amount,
         order_currency,
-        order_status
+        order_status,
+        sales_org,
+        profit_center
     FROM {{ ref('stg_enriched_orders') }}
     
     -- Filter to specific source if specified
@@ -65,6 +68,7 @@ WITH source_data AS (
 
 SELECT
     s.source_system,
+    s.company_code,
     s.order_key,
     s.order_id,
     s.order_date,
@@ -73,6 +77,8 @@ SELECT
     s.order_amount,
     s.order_currency,
     s.order_status,
+    s.sales_org,
+    s.profit_center,
     
     -- Audit columns (uniform set - pre-hook delete so created = updated)
     {{ audit_columns() }}
