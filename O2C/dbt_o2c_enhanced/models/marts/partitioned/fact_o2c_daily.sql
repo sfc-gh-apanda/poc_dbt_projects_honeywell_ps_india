@@ -4,7 +4,7 @@
         pre_hook="{{ switch_warehouse() }}",
         unique_key=['source_system', 'order_date', 'order_key'],
         incremental_strategy='delete+insert',
-        on_schema_change='sync_all_columns',
+        on_schema_change='append_new_columns',
         incremental_predicates=[
             "DBT_INTERNAL_DEST.order_date >= DATEADD('day', -" ~ var('reload_days', 3) ~ ", CURRENT_DATE())"
         ],

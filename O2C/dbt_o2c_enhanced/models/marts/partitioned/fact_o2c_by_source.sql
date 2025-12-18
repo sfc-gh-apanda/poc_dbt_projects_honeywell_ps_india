@@ -11,7 +11,7 @@
     config(
         materialized='incremental',
         incremental_strategy='append',
-        on_schema_change='sync_all_columns',
+        on_schema_change='append_new_columns',
         tags=['partitioned', 'pre_hook_delete', 'source_reload', 'pattern_example'],
         pre_hook=pre_hooks,
         query_tag='dbt_fact_o2c_by_source'
