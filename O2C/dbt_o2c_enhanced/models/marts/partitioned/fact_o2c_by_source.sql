@@ -1,7 +1,7 @@
 {#- Build pre_hook list: always include switch_warehouse, conditionally include delete -#}
 {% set reload_source = var('reload_source', 'ALL') %}
 {% set pre_hooks = [switch_warehouse()] %}
-{% if reload_source != 'ALL' %}
+{% if is_incremental() and reload_source != 'ALL' %}
     {% do pre_hooks.append("DELETE FROM " ~ this ~ " WHERE source_system = '" ~ reload_source ~ "'") %}
 {% endif %}
 
