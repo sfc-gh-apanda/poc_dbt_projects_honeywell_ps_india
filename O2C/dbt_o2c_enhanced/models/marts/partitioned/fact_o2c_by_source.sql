@@ -1,33 +1,10 @@
-{#- Build pre_hook list: always include switch_warehouse, conditionally include delete -#}
-{% set reload_source = var('reload_source', 'ALL') %}
-{% set pre_hooks = [switch_warehouse()] %}
-
-{#- DEBUG LOGGING -#}
-{{ log("=== PRE-HOOK DEBUG ===", info=True) }}
-{{ log("reload_source: " ~ reload_source, info=True) }}
-{{ log("is_incremental(): " ~ is_incremental(), info=True) }}
-{{ log("reload_source != 'ALL': " ~ (reload_source != 'ALL'), info=True) }}
-
-{% if is_incremental() and reload_source != 'ALL' %}
-    {#- Explicitly construct the full table reference to avoid schema resolution issues -#}
-    {% set target_relation = api.Relation.create(database=target.database, schema=target.schema ~ '_PARTITIONED', identifier='fact_o2c_by_source') %}
-    {% set delete_stmt = "DELETE FROM " ~ target_relation ~ " WHERE source_system = '" ~ reload_source ~ "'" %}
-    {{ log("DELETE STATEMENT: " ~ delete_stmt, info=True) }}
-    {% do pre_hooks.append(delete_stmt) %}
-{% else %}
-    {{ log("DELETE SKIPPED - Condition not met", info=True) }}
-{% endif %}
-
-{{ log("Final pre_hooks count: " ~ pre_hooks|length, info=True) }}
-{{ log("===================", info=True) }}
-
 {{
     config(
         materialized='incremental',
         incremental_strategy='append',
         on_schema_change='append_new_columns',
         tags=['partitioned', 'pre_hook_delete', 'source_reload', 'pattern_example'],
-        pre_hook=pre_hooks,
+        pre_hook="{% if is_incremental() and var('reload_source', 'ALL') != 'ALL' %}DELETE FROM EDW.O2C_ENHANCED_PARTITIONED.fact_o2c_by_source WHERE source_system = '{{ var('reload_source') }}'{% endif %}",
         query_tag='dbt_fact_o2c_by_source'
     )
 }}
