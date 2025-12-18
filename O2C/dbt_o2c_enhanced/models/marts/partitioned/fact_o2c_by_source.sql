@@ -2,7 +2,9 @@
 {% set reload_source = var('reload_source', 'ALL') %}
 {% set pre_hooks = [switch_warehouse()] %}
 {% if is_incremental() and reload_source != 'ALL' %}
-    {% do pre_hooks.append("DELETE FROM " ~ this ~ " WHERE source_system = '" ~ reload_source ~ "'") %}
+    {#- Explicitly construct the full table reference to avoid schema resolution issues -#}
+    {% set target_relation = api.Relation.create(database=target.database, schema=target.schema ~ '_PARTITIONED', identifier='fact_o2c_by_source') %}
+    {% do pre_hooks.append("DELETE FROM " ~ target_relation ~ " WHERE source_system = '" ~ reload_source ~ "'") %}
 {% endif %}
 
 {{
