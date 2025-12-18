@@ -1,11 +1,25 @@
 {#- Build pre_hook list: always include switch_warehouse, conditionally include delete -#}
 {% set reload_source = var('reload_source', 'ALL') %}
 {% set pre_hooks = [switch_warehouse()] %}
+
+{#- DEBUG LOGGING -#}
+{{ log("=== PRE-HOOK DEBUG ===", info=True) }}
+{{ log("reload_source: " ~ reload_source, info=True) }}
+{{ log("is_incremental(): " ~ is_incremental(), info=True) }}
+{{ log("reload_source != 'ALL': " ~ (reload_source != 'ALL'), info=True) }}
+
 {% if is_incremental() and reload_source != 'ALL' %}
     {#- Explicitly construct the full table reference to avoid schema resolution issues -#}
     {% set target_relation = api.Relation.create(database=target.database, schema=target.schema ~ '_PARTITIONED', identifier='fact_o2c_by_source') %}
-    {% do pre_hooks.append("DELETE FROM " ~ target_relation ~ " WHERE source_system = '" ~ reload_source ~ "'") %}
+    {% set delete_stmt = "DELETE FROM " ~ target_relation ~ " WHERE source_system = '" ~ reload_source ~ "'" %}
+    {{ log("DELETE STATEMENT: " ~ delete_stmt, info=True) }}
+    {% do pre_hooks.append(delete_stmt) %}
+{% else %}
+    {{ log("DELETE SKIPPED - Condition not met", info=True) }}
 {% endif %}
+
+{{ log("Final pre_hooks count: " ~ pre_hooks|length, info=True) }}
+{{ log("===================", info=True) }}
 
 {{
     config(
