@@ -4,7 +4,7 @@
         incremental_strategy='append',
         on_schema_change='append_new_columns',
         tags=['partitioned', 'pre_hook_delete', 'source_reload', 'pattern_example'],
-        pre_hook="{% if is_incremental() and var('reload_source', 'ALL') != 'ALL' %}DELETE FROM EDW.O2C_ENHANCED_PARTITIONED.fact_o2c_by_source WHERE source_system = '{{ var('reload_source') }}'{% endif %}",
+        pre_hook="{% if is_incremental() %}{% if var('reload_source', 'ALL') != 'ALL' %}DELETE FROM {{ this }} WHERE SOURCE_SYSTEM = '{{ var('reload_source') }}';{% endif %}{% endif %}",
         query_tag='dbt_fact_o2c_by_source'
     )
 }}
