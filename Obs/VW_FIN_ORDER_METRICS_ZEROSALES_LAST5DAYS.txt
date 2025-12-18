@@ -1,0 +1,58 @@
+create or replace view EDW.CORP_DATA_VALIDATE.VW_FIN_ORDER_METRICS_ZEROSALES_LAST5DAYS(
+	DATA_SOURCE_NAME,
+	FISCAL_YEAR,
+	FISCAL_MONTH,
+	REV_MN,
+	GBE,
+	FISCAL_PERIOD_WORK_DAY,
+	IS_ZERO,
+	ZERO_COUNT_LAST_5_DAYS,
+	HIGHLIGHT_FLAG
+) as
+/*
+-------------------------------------------------------------------------------------------------------------------*
+                                          FIN_ORDER_METRIC VALIDATION                                                
+*-----------------------------------------------------------------------------------------------------------------*
+* Report            : VW_FIN_ORDER_METRICS__ZEROSALES_LAST5DAYS                                                        
+* Author            : H541033                                                                               
+* Date:             : 18/06/2025                                                                       
+* Final View Name   : VW_FIN_ORDER_METRICS__ZEROSALES_LAST5DAYS
+* Description       : The objective of this model is to find discrepancy IN VW_FIN_ORDER_METRIC_VALIDATION
+*--------------------------------------------------------------------------------------------------------------------* 
+*----------------------------------------------Modification History Start ------------------------------------------ *
+***************************************************************************************************
+*  Version #          Date                   EID                     Description                           
+*  01              18/06/2025               H541033                  Initial Version
+*/
+WITH BASE_DATA AS (
+select DATA_SOURCE_NAME,fiscal_year,fiscal_month,ROUND(SUM(AMT_USD_STD)/1000000,2) REV_MN,ORG_LEVEL2_NAME AS GBE,
+FISCAL_PERIOD_WORK_DAY, 
+from EDW.CORP_REPORT.VW_FIN_ORDERS_BACKLOG_BOOKING_SUMMARY 
+where CUSTOMER_TYPE='E'
+And SCENARIO='Actual'
+AND FISCAL_YEAR=YEAR(CURRENT_TIMESTAMP())
+AND FISCAL_MONTH=MONTH(CURRENT_TIMESTAMP())
+--AND FISCAL_PERIOD_WORK_DAY>=DATEADD(DAY,-4,CURRENT_DATE())
+--AND GBE='ES'
+group by all
+ORDER BY FISCAL_PERIOD_WORK_DAY ASC
+),
+FLAGGED_DATA AS (
+SELECT *,CASE WHEN REV_MN=0 THEN 1 ELSE 0 END AS IS_ZERO FROM BASE_DATA 
+),
+WINDOWED_DATA AS (
+SELECT *,SUM(IS_ZERO) OVER (PARTITION BY GBE ORDER BY FISCAL_PERIOD_WORK_DAY ROWS BETWEEN 4 PRECEDING AND CURRENT ROW) AS ZERO_COUNT_LAST_5_DAYS
+FROM FLAGGED_DATA
+)
+SELECT DATA_SOURCE_NAME,
+	FISCAL_YEAR,
+	FISCAL_MONTH,
+	REV_MN,
+	GBE,
+	FISCAL_PERIOD_WORK_DAY,
+	IS_ZERO,
+	ZERO_COUNT_LAST_5_DAYS,
+CASE WHEN ZERO_COUNT_LAST_5_DAYS=5 THEN TRUE ELSE FALSE END AS HIGHLIGHT_FLAG
+FROM WINDOWED_DATA
+WHERE HIGHLIGHT_FLAG=TRUE AND GBE IS NOT NULL
+ORDER BY FISCAL_PERIOD_WORK_DAY;

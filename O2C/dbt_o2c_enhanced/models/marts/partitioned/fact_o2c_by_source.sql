@@ -1,36 +1,39 @@
+{% set reload_src = var('reload_source', 'ALL') %}
+
 {{
     config(
         materialized='incremental',
-        incremental_strategy='append',
+        incremental_strategy='delete+insert',
+        unique_key=['order_key', 'source_system'],
         on_schema_change='append_new_columns',
         tags=['partitioned', 'pre_hook_delete', 'source_reload', 'pattern_example'],
-        pre_hook="{% if is_incremental() %}{% if var('reload_source', 'ALL') != 'ALL' %}DELETE FROM {{ this }} WHERE SOURCE_SYSTEM = '{{ var('reload_source') }}';{% endif %}{% endif %}",
         query_tag='dbt_fact_o2c_by_source'
     )
 }}
 
 {#
 ═══════════════════════════════════════════════════════════════════════════════
-PATTERN 5: PRE-HOOK DELETE (Custom delete + append)
+PATTERN 5: DELETE+INSERT BY SOURCE (Source-specific reload)
 ═══════════════════════════════════════════════════════════════════════════════
 
 Description:
-  - Delete specific subset of data via pre-hook
-  - Insert fresh data via append strategy
+  - Use delete+insert strategy with source system filter
+  - Only rows matching the source in the new data get deleted
+  - Then fresh data for that source is inserted
   - Ideal for source-system-specific reloads
 
 Configuration:
   - var('reload_source'): Source system to reload (default: 'ALL')
-  - Run with: dbt run --select fact_o2c_by_source --vars '{"reload_source": "BRP"}'
+  - Run with: dbt run --select fact_o2c_by_source --vars '{"reload_source": "BRP900"}'
 
 Testing This Pattern:
   1. First run: dbt run --select fact_o2c_by_source (loads all sources)
-  2. Run for specific source: dbt run --select fact_o2c_by_source --vars '{"reload_source": "BRP"}'
+  2. Run for specific source: dbt run --select fact_o2c_by_source --vars '{"reload_source": "BRP900"}'
   3. Verify:
-     - BRP records: Deleted and re-inserted (new dbt_loaded_at)
+     - BRP900 records: Deleted and re-inserted (new dbt_loaded_at)
      - Other sources: UNCHANGED
 
-Audit: Full audit columns (uniform set - pre-hook delete so created = updated)
+Audit: Full audit columns (uniform set - delete+insert so created = updated)
 
 ═══════════════════════════════════════════════════════════════════════════════
 #}

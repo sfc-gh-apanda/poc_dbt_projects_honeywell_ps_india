@@ -1,0 +1,53 @@
+create or replace view EDW.CORP_DATA_VALIDATE.VW_MASTER_DIM_ORG_VALIDATION(
+	SOURCE_SYSTEM,
+	CURR_ROW_COUNT,
+	PREV_ROW_COUNT,
+	COUNT_DIFF,
+	VARIANCE_PCT,
+	HIGHLIGHT_FLAG
+) as
+/*
+-------------------------------------------------------------------------------------------------------------------*
+                                          DIM ORG VALIDATION                                                
+*-----------------------------------------------------------------------------------------------------------------*
+* Report            : VW_MASTER_DIM_ORG_VALIDATION                                                        
+* Author            : H541033                                                                               
+* Date:             : 13/06/2025                                                                       
+* Final View Name   : VW_MASTER_DIM_ORG_VALIDATION  
+* Description       : The objective of this model is to find discrepancy IN DIM ORG
+*--------------------------------------------------------------------------------------------------------------------* 
+*----------------------------------------------Modification History Start ------------------------------------------ *
+***************************************************************************************************
+*  Version #          Date                   EID                     Description                           
+*  01              2025-06-13               H541033                  Initial Version
+*  02              2025-06-27               H541034                  Updated highlight flag logic
+*  03              2025-07-15               H541034                  Added variance % column and alert if more than 5%
+*/
+WITH CTE_SOURCE_SYSTEM AS
+(
+SELECT PARAMETER_VALUE1 AS SOURCE_SYSTEM FROM EDW.CORP_REF.COMMON_PARMS WHERE MODULE_NAME='DIM_ORG_SOURCE_SYSTEM'
+),
+CTE_DIM_ORG_CURR AS
+(
+SELECT SOURCE_SYSTEM,count(*) as CURR_ROW_COUNT FROM EDW.CORP_MASTER.DIM_ORGANIZATION group by all
+),
+CTE_DIM_ORG_PREV AS
+(
+SELECT SOURCE_SYSTEM,count(*) as PREV_ROW_COUNT FROM EDW.CORP_MASTER.DIM_ORGANIZATION AT (OFFSET=>-60*60*22) group by all
+)
+SELECT 
+CTE_SOURCE_SYSTEM.SOURCE_SYSTEM,
+TO_NUMBER(CURR_ROW_COUNT) AS CURR_ROW,
+TO_NUMBER(PREV_ROW_COUNT) AS PREV_ROW,
+CURR_ROW - PREV_ROW AS COUNT_DIFF,
+ROUND(((CURR_ROW - PREV_ROW) / PREV_ROW) * 100,2) AS VARIANCE_PCT,
+CASE WHEN CURR_ROW_COUNT=0 THEN TRUE 
+     WHEN COUNT_DIFF<0 THEN TRUE 
+     WHEN VARIANCE_PCT > 5 THEN TRUE ELSE FALSE
+     END AS  HIGHLIGHT_FLAG 
+FROM CTE_SOURCE_SYSTEM 
+LEFT JOIN  CTE_DIM_ORG_CURR 
+ON CTE_SOURCE_SYSTEM.SOURCE_SYSTEM=CTE_DIM_ORG_CURR.SOURCE_SYSTEM 
+LEFT JOIN CTE_DIM_ORG_PREV 
+ON CTE_SOURCE_SYSTEM.SOURCE_SYSTEM= CTE_DIM_ORG_PREV.SOURCE_SYSTEM 
+ORDER BY HIGHLIGHT_FLAG DESC,CURR_ROW_COUNT DESC;

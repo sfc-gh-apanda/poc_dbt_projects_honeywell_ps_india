@@ -1,0 +1,41 @@
+create or replace view EDW.CORP_DATA_VALIDATE.VW_DIM_ORG_SBG_GBE_VALIDATION(
+	SOURCE_SYSTEM,
+	ORG_CODE,
+	SBG,
+	SBG_NAME,
+	SBU,
+	SBU_NAME,
+	GBE,
+	GBE_NAME
+) as
+/*
+-------------------------------------------------------------------------------------------------------------------*
+                                          FIN_ORDER_METRIC VALIDATION                                                
+*-----------------------------------------------------------------------------------------------------------------*
+* Report            : VW_DIM_ORG_SBG_GBE_VALIDATION                                                        
+* Author            : H541033                                                                               
+* Date:             : 11/07/2025                                                                       
+* Final View Name   : VW_DIM_ORG_SBG_GBE_VALIDATION
+* Description       : The objective of this model is to find discrepancy IN DIM org at SBG and GBE level
+*--------------------------------------------------------------------------------------------------------------------* 
+*----------------------------------------------Modification History Start ------------------------------------------ *
+***************************************************************************************************
+*  Version #          Date                   EID                     Description                           
+*  01              11/07/2025               H541033                  Initial Version
+*/
+SELECT SOURCE_SYSTEM,ORG_CODE,SBG,SBG_NAME,SBU,SBU_NAME,GBE,GBE_NAME 
+FROM EDW.CORP_REPORT.VW_DIM_ORG WHERE SBG IS NULL AND GBE IS NULL   
+AND ORG_CODE IS NOT NULL AND NOT (ORG_CODE LIKE ANY(
+'Total_Organization'
+,'No_Organization'
+,'Suspense_Organization'
+,'Licensing'
+,'TopC1'
+,'AERO_ORG'
+,'BA_ORG'
+,'ESS_ORG'
+,'OEM'
+,'OEM & Licensing'
+,'CORP_ORG'
+,'IA_ORG'))
+GROUP BY ALL;;

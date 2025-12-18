@@ -16,7 +16,7 @@
     TO CHANGE WAREHOUSE (No CI/CD needed):
         Just UPDATE the config table:
         
-        UPDATE EDW.CONFIG.DBT_WAREHOUSE_CONFIG
+        UPDATE EDW.CONFIG.DBT_WAREHOUSE_CONFIG₹
         SET warehouse_name = 'COMPUTE_WH_LARGE'
         WHERE scope_name = 'dbt_o2c_enhanced';
 
@@ -124,13 +124,13 @@ COMMENT ON PROCEDURE EDW.CONFIG.SET_DYNAMIC_WAREHOUSE(VARCHAR, VARCHAR, VARCHAR,
 -- Clear and re-insert defaults (idempotent)
 MERGE INTO EDW.CONFIG.DBT_WAREHOUSE_CONFIG t
 USING (
-    SELECT 'DEFAULT' as config_scope, 'DEFAULT' as scope_name, 'COMPUTE_WH' as warehouse_name, 100 as priority, 'Global fallback' as notes
+    SELECT 'DEFAULT' as config_scope, 'DEFAULT' as scope_name, 'HONEYWELL_POC' as warehouse_name, 100 as priority, 'Global fallback' as notes
     UNION ALL
-    SELECT 'ENVIRONMENT', 'dev', 'COMPUTE_WH', 50, 'Development environment'
+    SELECT 'ENVIRONMENT', 'dev', 'HONEYWELL_POC', 50, 'Development environment'
     UNION ALL
     SELECT 'ENVIRONMENT', 'prod', 'COMPUTE_WH', 50, 'Production environment'
     UNION ALL
-    SELECT 'PROJECT', 'dbt_o2c_enhanced', 'COMPUTE_WH', 40, 'O2C Enhanced project'
+    SELECT 'PROJECT', 'dbt_o2c_enhanced', 'HONEYWELL_POC', 40, 'O2C Enhanced project'
     UNION ALL
     SELECT 'LAYER', 'staging', 'COMPUTE_WH', 30, 'Staging layer - views'
     UNION ALL
