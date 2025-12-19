@@ -26,7 +26,7 @@
 */
 
 TABLES(
-    {{ ref('dbt_o2c_enhanced', 'dm_o2c_reconciliation') }}
+    EDW.O2C_ENHANCED_CORE.DM_O2C_RECONCILIATION
 )
 
 DIMENSIONS(

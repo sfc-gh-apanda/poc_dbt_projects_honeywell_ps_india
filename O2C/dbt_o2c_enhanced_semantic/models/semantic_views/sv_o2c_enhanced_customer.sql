@@ -26,7 +26,7 @@
 */
 
 TABLES(
-    {{ ref('dbt_o2c_enhanced', 'agg_o2c_by_customer') }}
+    EDW.O2C_ENHANCED_AGGREGATES.AGG_O2C_BY_CUSTOMER
 )
 
 DIMENSIONS(
