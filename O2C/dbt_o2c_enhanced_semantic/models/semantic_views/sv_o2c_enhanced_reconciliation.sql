@@ -6,31 +6,31 @@ tables (
 )
 
 facts (
-    RECONCILIATION.order_amount,
-    RECONCILIATION.invoice_amount,
-    RECONCILIATION.payment_amount,
-    RECONCILIATION.outstanding_amount,
-    RECONCILIATION.unbilled_amount,
-    RECONCILIATION.days_order_to_invoice,
-    RECONCILIATION.days_invoice_to_payment,
-    RECONCILIATION.days_order_to_cash,
-    RECONCILIATION.days_past_due,
-    RECONCILIATION.order_quantity
+    RECONCILIATION.order_amount as order_amount,
+    RECONCILIATION.invoice_amount as invoice_amount,
+    RECONCILIATION.payment_amount as payment_amount,
+    RECONCILIATION.outstanding_amount as outstanding_amount,
+    RECONCILIATION.unbilled_amount as unbilled_amount,
+    RECONCILIATION.days_order_to_invoice as days_order_to_invoice,
+    RECONCILIATION.days_invoice_to_payment as days_invoice_to_payment,
+    RECONCILIATION.days_order_to_cash as days_order_to_cash,
+    RECONCILIATION.days_past_due as days_past_due,
+    RECONCILIATION.order_quantity as order_quantity
 )
 
 dimensions (
-    RECONCILIATION.customer_name,
-    RECONCILIATION.customer_type,
-    RECONCILIATION.customer_country,
-    RECONCILIATION.source_system,
-    RECONCILIATION.reconciliation_status,
-    RECONCILIATION.payment_timing,
-    RECONCILIATION.order_date,
-    RECONCILIATION.invoice_date,
-    RECONCILIATION.payment_date,
-    RECONCILIATION.due_date,
-    RECONCILIATION.dbt_environment,
-    RECONCILIATION.dbt_source_model
+    RECONCILIATION.customer_name as customer_name,
+    RECONCILIATION.customer_type as customer_type,
+    RECONCILIATION.customer_country as customer_country,
+    RECONCILIATION.source_system as source_system,
+    RECONCILIATION.reconciliation_status as reconciliation_status,
+    RECONCILIATION.payment_timing as payment_timing,
+    RECONCILIATION.order_date as order_date,
+    RECONCILIATION.invoice_date as invoice_date,
+    RECONCILIATION.payment_date as payment_date,
+    RECONCILIATION.due_date as due_date,
+    RECONCILIATION.dbt_environment as dbt_environment,
+    RECONCILIATION.dbt_source_model as dbt_source_model
 )
 
 metrics (

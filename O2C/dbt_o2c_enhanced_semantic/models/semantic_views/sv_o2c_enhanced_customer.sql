@@ -6,27 +6,27 @@ tables (
 )
 
 facts (
-    CUSTOMER.total_order_value,
-    CUSTOMER.total_invoice_value,
-    CUSTOMER.total_payment_value,
-    CUSTOMER.current_ar_outstanding,
-    CUSTOMER.total_order_count,
-    CUSTOMER.total_invoice_count,
-    CUSTOMER.total_payment_count,
-    CUSTOMER.avg_days_sales_outstanding,
-    CUSTOMER.avg_days_to_invoice,
-    CUSTOMER.avg_days_to_payment,
-    CUSTOMER.first_order_date,
-    CUSTOMER.last_order_date
+    CUSTOMER.total_order_value as total_order_value,
+    CUSTOMER.total_invoice_value as total_invoice_value,
+    CUSTOMER.total_payment_value as total_payment_value,
+    CUSTOMER.current_ar_outstanding as current_ar_outstanding,
+    CUSTOMER.total_order_count as total_order_count,
+    CUSTOMER.total_invoice_count as total_invoice_count,
+    CUSTOMER.total_payment_count as total_payment_count,
+    CUSTOMER.avg_days_sales_outstanding as avg_days_sales_outstanding,
+    CUSTOMER.avg_days_to_invoice as avg_days_to_invoice,
+    CUSTOMER.avg_days_to_payment as avg_days_to_payment,
+    CUSTOMER.first_order_date as first_order_date,
+    CUSTOMER.last_order_date as last_order_date
 )
 
 dimensions (
-    CUSTOMER.customer_name,
-    CUSTOMER.customer_type,
-    CUSTOMER.customer_country,
-    CUSTOMER.customer_classification,
-    CUSTOMER.dbt_environment,
-    CUSTOMER.dbt_source_model
+    CUSTOMER.customer_name as customer_name,
+    CUSTOMER.customer_type as customer_type,
+    CUSTOMER.customer_country as customer_country,
+    CUSTOMER.customer_classification as customer_classification,
+    CUSTOMER.dbt_environment as dbt_environment,
+    CUSTOMER.dbt_source_model as dbt_source_model
 )
 
 metrics (
