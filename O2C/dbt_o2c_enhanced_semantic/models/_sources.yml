@@ -1,0 +1,23 @@
+version: 2
+
+sources:
+  - name: o2c_enhanced_core
+    description: Core data models from dbt_o2c_enhanced project
+    database: EDW
+    schema: O2C_ENHANCED_CORE
+    tables:
+      - name: dm_o2c_reconciliation
+        description: |
+          Complete O2C reconciliation data mart combining orders, invoices, and payments.
+          Source for semantic view enabling Cortex Analyst natural language queries.
+        
+  - name: o2c_enhanced_aggregates  
+    description: Aggregated models from dbt_o2c_enhanced project
+    database: EDW
+    schema: O2C_ENHANCED_AGGREGATES
+    tables:
+      - name: agg_o2c_by_customer
+        description: |
+          Customer-level lifetime aggregates for revenue, AR, and DSO metrics.
+          Source for semantic view enabling customer analysis via Cortex Analyst.
+

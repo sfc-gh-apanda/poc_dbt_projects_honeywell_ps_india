@@ -16,7 +16,7 @@
 */
 
 TABLES(
-    'EDW.O2C_ENHANCED_CORE.DM_O2C_RECONCILIATION'
+    {{ source('o2c_enhanced_core', 'dm_o2c_reconciliation') }}
 )
 DIMENSIONS(
     customer_name COMMENT = 'Customer company name' SYNONYMS ('customer', 'company', 'account', 'client'),
