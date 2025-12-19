@@ -2,7 +2,7 @@
 
 tables (
     RECONCILIATION as {{ source('o2c_enhanced_core', 'dm_o2c_reconciliation') }}
-    primary key (order_key, invoice_key, payment_key)
+    primary key (reconciliation_key)
 )
 
 facts (
