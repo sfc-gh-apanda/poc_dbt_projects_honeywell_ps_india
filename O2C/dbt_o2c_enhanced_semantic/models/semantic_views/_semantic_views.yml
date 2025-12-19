@@ -1,0 +1,173 @@
+version: 2
+
+models:
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # SEMANTIC VIEW 1: O2C Enhanced Reconciliation
+  # ═══════════════════════════════════════════════════════════════════════════════
+  
+  - name: sv_o2c_enhanced_reconciliation
+    description: |
+      **Enhanced O2C Reconciliation Semantic View**
+      
+      Enables Cortex Analyst to answer natural language questions about order-to-cash metrics,
+      customer performance, AR outstanding, and data quality.
+      
+      **Source:** `dm_o2c_reconciliation` (enhanced with audit columns)
+      
+      **Key Features:**
+      - 12 business dimensions (customer, status, dates)
+      - 14 financial and operational facts
+      - 25+ metrics for revenue, AR, DSO, and data quality
+      - Extensive synonyms for natural language understanding
+      - Audit trail exposed for data quality queries
+      
+      **Example Questions:**
+      - "Show me customers with outstanding AR over $50,000"
+      - "What's the average DSO for external customers?"
+      - "Which records were updated in the last 24 hours?"
+      - "Show me overdue invoices by customer type"
+      - "What's the collection rate for German customers?"
+      
+      **Materialization:** Snowflake SEMANTIC VIEW (uses dbt_semantic_view package)
+      
+      **Deployment:** `dbt build`
+      
+      **Verification:** `SHOW SEMANTIC VIEWS IN SCHEMA EDW.O2C_ENHANCED_SEMANTIC_VIEWS`
+    
+    config:
+      tags: ['semantic', 'reconciliation', 'cortex_analyst', 'o2c', 'enhanced']
+    
+    columns:
+      # Business Dimensions
+      - name: customer_name
+        description: "Customer company name - primary identifier for customer queries"
+      
+      - name: customer_type
+        description: "Customer type classification: E=External (paying customers), I=Internal (intercompany)"
+      
+      - name: customer_country
+        description: "Customer geographic location for regional analysis"
+      
+      - name: reconciliation_status
+        description: "O2C pipeline status: NOT_INVOICED (ordered but not billed), NOT_PAID (invoiced but unpaid), OPEN (partial payment), CLOSED (fully paid)"
+      
+      - name: payment_timing
+        description: "Payment performance: ON_TIME (paid within terms), LATE (paid after due date), OVERDUE (unpaid and past due), CURRENT (unpaid but not yet due)"
+      
+      # Time Dimensions
+      - name: order_date
+        description: "Order placement date - use for time-series analysis and trending"
+      
+      - name: invoice_date
+        description: "Invoice generation date - measures billing timeliness"
+      
+      - name: payment_date
+        description: "Payment receipt date - measures collection performance"
+      
+      # Financial Facts
+      - name: order_amount
+        description: "Order value in USD - total revenue booked"
+      
+      - name: outstanding_amount
+        description: "AR outstanding in USD (invoice amount - payment amount) - key metric for cash flow"
+      
+      - name: days_order_to_cash
+        description: "Days Sales Outstanding (DSO) - complete O2C cycle time from order to payment"
+      
+      # Audit Columns (Enhanced Feature)
+      - name: dbt_environment
+        description: "Data environment (dev/prod) - filter to production data only for business reporting"
+      
+      - name: dbt_created_at
+        description: "Record creation timestamp - preserved across updates for historical tracking"
+      
+      - name: dbt_updated_at
+        description: "Last update timestamp - identify recently changed records for data quality monitoring"
+      
+      - name: dbt_row_hash
+        description: "MD5 hash of key business columns - detect data changes and duplicates"
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # SEMANTIC VIEW 2: O2C Enhanced Customer Summary
+  # ═══════════════════════════════════════════════════════════════════════════════
+  
+  - name: sv_o2c_enhanced_customer
+    description: |
+      **Enhanced Customer Summary Semantic View**
+      
+      Enables Cortex Analyst to answer natural language questions about customer lifetime value,
+      segmentation, risk analysis, and performance metrics.
+      
+      **Source:** `agg_o2c_by_customer` (enhanced with audit columns)
+      
+      **Key Features:**
+      - 6 customer dimensions
+      - 13 lifetime value and performance facts
+      - 20+ metrics for revenue, AR, DSO, and segmentation
+      - Customer risk scoring and segmentation
+      - Audit metadata for data freshness
+      
+      **Example Questions:**
+      - "Show me top 10 customers by revenue"
+      - "Which customers have DSO over 60 days?"
+      - "What's the total AR for external customers in Germany?"
+      - "Show me high-value customers with overdue payments"
+      - "How many customers are at risk?"
+      
+      **Materialization:** Snowflake SEMANTIC VIEW (uses dbt_semantic_view package)
+      
+      **Deployment:** `dbt build`
+      
+      **Verification:** `SHOW SEMANTIC VIEWS IN SCHEMA EDW.O2C_ENHANCED_SEMANTIC_VIEWS`
+    
+    config:
+      tags: ['semantic', 'customer', 'cortex_analyst', 'summary', 'enhanced']
+    
+    columns:
+      # Customer Dimensions
+      - name: customer_name
+        description: "Customer company name - unique identifier for customer-level analysis"
+      
+      - name: customer_type
+        description: "Customer type: E=External (revenue-generating), I=Internal (intercompany)"
+      
+      - name: customer_country
+        description: "Customer country for geographic segmentation and regional analysis"
+      
+      # Lifetime Value Facts
+      - name: total_order_value
+        description: "Customer lifetime value (LTV) - total revenue from this customer across all time"
+      
+      - name: current_ar_outstanding
+        description: "Customer's current AR balance - outstanding receivables for this customer"
+      
+      - name: avg_days_sales_outstanding
+        description: "Customer's average DSO - payment performance metric (lower is better)"
+      
+      # Volume Facts
+      - name: total_order_count
+        description: "Total number of orders placed by this customer - measures engagement"
+      
+      # Timeline Facts
+      - name: first_order_date
+        description: "Customer acquisition date - when they first ordered"
+      
+      - name: last_order_date
+        description: "Most recent order date - measure recency for churn risk"
+      
+      # Audit Columns (Enhanced Feature)
+      - name: dbt_loaded_at
+        description: "Last refresh timestamp - verify data is current"
+      
+      - name: dbt_environment
+        description: "Data environment - filter to production for business analysis"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SEMANTIC LAYER TESTS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Note: Semantic views don't support traditional dbt tests
+# Use Snowflake to verify deployment:
+#   SHOW SEMANTIC VIEWS IN SCHEMA EDW.O2C_ENHANCED_SEMANTIC_VIEWS;
+#   DESCRIBE SEMANTIC VIEW EDW.O2C_ENHANCED_SEMANTIC_VIEWS.SV_O2C_ENHANCED_RECONCILIATION;
+

@@ -1,0 +1,87 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# DBT_O2C_ENHANCED_SEMANTIC - Semantic Views for Cortex Analyst
+# ═══════════════════════════════════════════════════════════════════════════════
+# 
+# Purpose: Create Snowflake SEMANTIC VIEW objects for natural language queries
+# Package: Snowflake-Labs/dbt_semantic_view v1.0.3
+# Target: Cortex Analyst integration
+# 
+# Features:
+# ✅ Semantic views with dimensions, facts, and metrics
+# ✅ Extensive synonyms for natural language understanding
+# ✅ Audit columns exposed for data quality queries
+# ✅ persist_docs enabled for documentation in Snowflake
+# ✅ Column-level comments automatically synced
+# 
+# ═══════════════════════════════════════════════════════════════════════════════
+
+name: 'dbt_o2c_enhanced_semantic'
+version: '1.0.0'
+config-version: 2
+
+profile: 'snowflake_o2c_enhanced'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MODEL CONFIGURATIONS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+models:
+  dbt_o2c_enhanced_semantic:
+    # ⭐ Enable persist_docs for all models
+    # This syncs dbt documentation to Snowflake object comments
+    +persist_docs:
+      relation: true
+      columns: true
+    
+    # Semantic views configuration
+    semantic_views:
+      +materialized: semantic_view
+      +schema: o2c_enhanced_semantic_views
+      +tags: ['semantic', 'cortex_analyst', 'natural_language']
+      +docs:
+        node_color: "#FF6B6B"  # Red for semantic layer
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# VARIABLES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+vars:
+  # Reference to data project
+  data_project: 'dbt_o2c_enhanced'
+  
+  # Cortex Analyst configuration
+  enable_cortex_analyst: true
+  
+  # Documentation settings
+  generate_docs: true
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# QUOTING
+# ═══════════════════════════════════════════════════════════════════════════════
+
+quoting:
+  database: false
+  schema: false
+  identifier: false
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# NOTES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# This project is metadata-only - no tables/views are created during transformation
+# Semantic views are Snowflake objects that enable Cortex Analyst to understand
+# your data and generate SQL from natural language questions
+#
+# Deployment: dbt build
+# Verification: SHOW SEMANTIC VIEWS IN SCHEMA EDW.O2C_ENHANCED_SEMANTIC_VIEWS
+

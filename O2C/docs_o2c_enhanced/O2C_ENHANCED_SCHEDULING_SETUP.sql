@@ -14,6 +14,10 @@
 --   - dbt_o2c_enhanced project deployed to Snowflake
 --   - O2C_ENHANCED_AUDIT_SETUP.sql executed
 -- 
+-- NOTE: For auto-restart from failure point capability, run:
+--   - O2C_ENHANCED_AUTO_RESTART_SETUP.sql (recommended for production)
+--   - This adds intelligent retry logic that selectively reruns only failed models
+-- 
 -- Idempotent: YES - Safe to run multiple times
 -- ═══════════════════════════════════════════════════════════════════════════════
 
