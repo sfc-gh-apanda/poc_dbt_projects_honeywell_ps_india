@@ -1,7 +1,6 @@
 {{
     config(
-        materialized='semantic_view',
-        persist_docs={'relation': true, 'columns': true}
+        materialized='semantic_view'
     )
 }}
 
