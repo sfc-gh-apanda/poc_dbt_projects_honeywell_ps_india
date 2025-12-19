@@ -13,6 +13,21 @@
 
 ---
 
+## Step 0: Create Schema (One-Time, 30 seconds)
+
+**Run this ONCE in Snowflake before first deployment:**
+
+```sql
+-- Run the setup script
+@SETUP_SCHEMA.sql
+
+-- Or manually:
+CREATE SCHEMA IF NOT EXISTS EDW.O2C_ENHANCED_SEMANTIC_VIEWS;
+GRANT ALL ON SCHEMA EDW.O2C_ENHANCED_SEMANTIC_VIEWS TO ROLE DBT_O2C_DEVELOPER;
+```
+
+---
+
 ## Step 1: Navigate to Project (30 seconds)
 
 ```bash

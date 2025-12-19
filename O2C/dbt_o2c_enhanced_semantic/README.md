@@ -79,6 +79,23 @@ This project creates **Snowflake SEMANTIC VIEW** objects that enable **Cortex An
 
 ## 🚀 Deployment
 
+### Step 0: Create Schema (One-Time Setup)
+
+**Run this ONCE in Snowflake before first deployment:**
+
+```sql
+-- In Snowflake worksheet, run:
+CREATE SCHEMA IF NOT EXISTS EDW.O2C_ENHANCED_SEMANTIC_VIEWS
+    COMMENT = 'Semantic views for Cortex Analyst';
+
+GRANT ALL ON SCHEMA EDW.O2C_ENHANCED_SEMANTIC_VIEWS TO ROLE DBT_O2C_DEVELOPER;
+```
+
+Or use the provided script:
+```bash
+snowsql -f SETUP_SCHEMA.sql
+```
+
 ### Step 1: Install Dependencies
 
 ```bash
