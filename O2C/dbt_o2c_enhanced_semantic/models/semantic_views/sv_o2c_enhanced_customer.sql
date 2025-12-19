@@ -16,7 +16,7 @@
 */
 
 TABLES(
-    EDW.O2C_ENHANCED_AGGREGATES.AGG_O2C_BY_CUSTOMER
+    'EDW.O2C_ENHANCED_AGGREGATES.AGG_O2C_BY_CUSTOMER'
 )
 DIMENSIONS(
     customer_name COMMENT = 'Customer company name' SYNONYMS ('customer', 'company', 'account', 'client'),
