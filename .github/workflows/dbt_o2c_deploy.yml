@@ -1,0 +1,200 @@
+name: O2C Enhanced - dbt Deploy (OIDC)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'O2C/dbt_o2c_enhanced/**'
+      - 'O2C/dbt_o2c_enhanced_semantic/**'
+      - '.github/workflows/dbt_o2c_deploy.yml'
+  workflow_dispatch:  # Allow manual triggers
+  schedule:
+    - cron: '0 6 * * *'  # Daily at 6 AM UTC
+
+# Required for OIDC authentication
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy-o2c-enhanced:
+    name: Deploy O2C Enhanced Core
+    runs-on: ubuntu-latest
+    environment: production  # Links to GitHub environment
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dbt-snowflake
+        run: |
+          pip install dbt-snowflake
+          dbt --version
+      
+      - name: Set up Snowflake CLI with OIDC
+        uses: snowflakedb/snowflake-cli-action@v2.0
+        with:
+          cli-version: "3.11.0"
+          use-oidc: true
+      
+      - name: Configure dbt profiles
+        run: |
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/profiles.yml << 'EOF'
+          o2c_enhanced:
+            target: prod
+            outputs:
+              prod:
+                type: snowflake
+                account: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+                user: github_actions_service_user
+                authenticator: oauth
+                token: ${{ env.SNOWFLAKE_TOKEN }}
+                role: GITHUB_CICD_ROLE
+                database: EDW
+                warehouse: COMPUTE_WH
+                schema: O2C_ENHANCED_CORE
+                threads: 4
+                client_session_keep_alive: false
+          EOF
+      
+      - name: dbt Debug
+        working-directory: ./O2C/dbt_o2c_enhanced
+        run: dbt debug
+      
+      - name: dbt Dependencies
+        working-directory: ./O2C/dbt_o2c_enhanced
+        run: dbt deps
+      
+      - name: dbt Build
+        working-directory: ./O2C/dbt_o2c_enhanced
+        run: dbt build
+      
+      - name: dbt Test
+        working-directory: ./O2C/dbt_o2c_enhanced
+        run: dbt test
+      
+      - name: dbt Docs Generate
+        working-directory: ./O2C/dbt_o2c_enhanced
+        run: dbt docs generate
+      
+      - name: Log Deployment Success
+        if: success()
+        run: |
+          echo "✅ O2C Enhanced Core deployment completed successfully"
+          echo "Run ID: ${{ github.run_id }}"
+          echo "Run Number: ${{ github.run_number }}"
+          echo "Commit SHA: ${{ github.sha }}"
+          echo "Triggered by: ${{ github.actor }}"
+          echo "Timestamp: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+      
+      - name: Log Deployment Failure
+        if: failure()
+        run: |
+          echo "❌ O2C Enhanced Core deployment failed"
+          echo "Run ID: ${{ github.run_id }}"
+          echo "Check logs above for details"
+
+  deploy-semantic-views:
+    name: Deploy Semantic Views
+    runs-on: ubuntu-latest
+    environment: production
+    needs: deploy-o2c-enhanced  # Wait for core deployment to complete
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dbt-snowflake
+        run: |
+          pip install dbt-snowflake
+          dbt --version
+      
+      - name: Set up Snowflake CLI with OIDC
+        uses: snowflakedb/snowflake-cli-action@v2.0
+        with:
+          cli-version: "3.11.0"
+          use-oidc: true
+      
+      - name: Configure dbt profiles
+        run: |
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/profiles.yml << 'EOF'
+          o2c_enhanced_semantic:
+            target: prod
+            outputs:
+              prod:
+                type: snowflake
+                account: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+                user: github_actions_service_user
+                authenticator: oauth
+                token: ${{ env.SNOWFLAKE_TOKEN }}
+                role: GITHUB_CICD_ROLE
+                database: EDW
+                warehouse: COMPUTE_WH
+                schema: O2C_ENHANCED_SEMANTIC_VIEWS
+                threads: 4
+                client_session_keep_alive: false
+          EOF
+      
+      - name: dbt Dependencies
+        working-directory: ./O2C/dbt_o2c_enhanced_semantic
+        run: dbt deps
+      
+      - name: dbt Build Semantic Views
+        working-directory: ./O2C/dbt_o2c_enhanced_semantic
+        run: dbt build
+      
+      - name: dbt Test Semantic Views
+        working-directory: ./O2C/dbt_o2c_enhanced_semantic
+        run: dbt test
+      
+      - name: Verify Semantic Views Deployment
+        if: success()
+        run: |
+          echo "✅ Semantic views deployed successfully"
+          echo "Run ID: ${{ github.run_id }}"
+          echo "Timestamp: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+      
+      - name: Log Semantic Views Failure
+        if: failure()
+        run: |
+          echo "❌ Semantic views deployment failed"
+          echo "Run ID: ${{ github.run_id }}"
+
+  deployment-summary:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [deploy-o2c-enhanced, deploy-semantic-views]
+    if: always()
+    
+    steps:
+      - name: Generate Summary
+        run: |
+          echo "## 🚀 O2C Enhanced Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Workflow:** ${{ github.workflow }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Run Number:** ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered By:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Job Status" >> $GITHUB_STEP_SUMMARY
+          echo "- Core Deployment: ${{ needs.deploy-o2c-enhanced.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Semantic Views: ${{ needs.deploy-semantic-views.result }}" >> $GITHUB_STEP_SUMMARY
+
