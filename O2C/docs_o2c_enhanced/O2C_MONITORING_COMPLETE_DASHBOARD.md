@@ -88,7 +88,7 @@ SELECT
      FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_COST_DAILY 
      WHERE usage_date = CURRENT_DATE() - 1) AS yesterday_cost_usd,
     
-    (SELECT ROUND(SUM(estimated_cost_usd), 2) 
+    (SELECT ROUND(total_cost_usd, 2) 
      FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_COST_MONTHLY 
      WHERE month = DATE_TRUNC('month', CURRENT_DATE())) AS mtd_cost_usd,
     
