@@ -111,7 +111,7 @@ jobs:
         run: |
           mkdir -p ~/.dbt
           cat > ~/.dbt/profiles.yml << 'EOF'
-          o2c_enhanced:
+          snowflake_o2c_enhanced:
             target: prod
             outputs:
               prod:
@@ -242,7 +242,7 @@ jobs:
         run: |
           mkdir -p ~/.dbt
           cat > ~/.dbt/profiles.yml << 'EOF'
-          o2c_enhanced_semantic:
+          snowflake_o2c_enhanced:
             target: prod
             outputs:
               prod:
