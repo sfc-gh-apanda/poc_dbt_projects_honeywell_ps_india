@@ -375,7 +375,7 @@ dependencies AS (
 )
 SELECT 
     model_name,
-    LISTAGG(DISTINCT COALESCE(source_1, ''), ', ') WITHIN GROUP (ORDER BY source_1) AS primary_sources,
+    LISTAGG(DISTINCT COALESCE(source_1, ''), ', ') AS primary_sources,
     COUNT(DISTINCT source_1) AS source_count,
     CASE 
         WHEN COUNT(DISTINCT source_1) > 5 THEN '🔴 HIGH COMPLEXITY (>5 sources)'
