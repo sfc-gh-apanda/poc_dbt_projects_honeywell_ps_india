@@ -613,42 +613,40 @@ SELECT '✅ VIEW 11 CREATED: O2C_ENH_STORAGE_USAGE' AS status;
 -- ═══════════════════════════════════════════════════════════════════════════════
 
 CREATE OR REPLACE VIEW O2C_ENH_STORAGE_GROWTH AS
+WITH daily_storage AS (
+    SELECT
+        usage_date,
+        database_name,
+        SUM(average_database_bytes) / 1024 / 1024 / 1024 AS total_gb,
+        SUM(average_database_bytes) / 1024 / 1024 / 1024 / 1024 AS total_tb,
+        -- Previous day storage
+        LAG(SUM(average_database_bytes) / 1024 / 1024 / 1024) OVER (
+            PARTITION BY database_name ORDER BY usage_date
+        ) AS prev_day_gb
+    FROM SNOWFLAKE.ACCOUNT_USAGE.DATABASE_STORAGE_USAGE_HISTORY
+    WHERE database_name = 'EDW'
+      AND usage_date >= DATEADD('day', -90, CURRENT_DATE())
+    GROUP BY usage_date, database_name
+)
 SELECT
     usage_date,
     database_name,
-    SUM(average_database_bytes) / 1024 / 1024 / 1024 AS total_gb,
-    SUM(average_database_bytes) / 1024 / 1024 / 1024 / 1024 AS total_tb,
+    total_gb,
+    total_tb,
+    prev_day_gb,
     -- Daily growth
-    LAG(SUM(average_database_bytes) / 1024 / 1024 / 1024) OVER (
-        PARTITION BY database_name ORDER BY usage_date
-    ) AS prev_day_gb,
-    SUM(average_database_bytes) / 1024 / 1024 / 1024 - 
-        COALESCE(LAG(SUM(average_database_bytes) / 1024 / 1024 / 1024) OVER (
-            PARTITION BY database_name ORDER BY usage_date
-        ), 0) AS daily_growth_gb,
+    total_gb - COALESCE(prev_day_gb, 0) AS daily_growth_gb,
     -- Growth percentage
-    ROUND((SUM(average_database_bytes) / 1024 / 1024 / 1024 - 
-        COALESCE(LAG(SUM(average_database_bytes) / 1024 / 1024 / 1024) OVER (
-            PARTITION BY database_name ORDER BY usage_date
-        ), SUM(average_database_bytes) / 1024 / 1024 / 1024)) / 
-        NULLIF(LAG(SUM(average_database_bytes) / 1024 / 1024 / 1024) OVER (
-            PARTITION BY database_name ORDER BY usage_date
-        ), 0) * 100, 2) AS daily_growth_pct,
+    ROUND((total_gb - COALESCE(prev_day_gb, total_gb)) / NULLIF(prev_day_gb, 0) * 100, 2) AS daily_growth_pct,
     -- 7-day growth average
-    AVG(SUM(average_database_bytes) / 1024 / 1024 / 1024 - 
-        COALESCE(LAG(SUM(average_database_bytes) / 1024 / 1024 / 1024) OVER (
-            PARTITION BY database_name ORDER BY usage_date
-        ), 0)) OVER (
+    AVG(total_gb - COALESCE(prev_day_gb, 0)) OVER (
         PARTITION BY database_name 
         ORDER BY usage_date 
         ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
     ) AS avg_daily_growth_7d_gb,
     -- Monthly storage cost ($23/TB/month)
-    ROUND(SUM(average_database_bytes) / 1024 / 1024 / 1024 / 1024 * 23, 2) AS est_monthly_cost_usd
-FROM SNOWFLAKE.ACCOUNT_USAGE.DATABASE_STORAGE_USAGE_HISTORY
-WHERE database_name = 'EDW'
-  AND usage_date >= DATEADD('day', -90, CURRENT_DATE())
-GROUP BY usage_date, database_name
+    ROUND(total_tb * 23, 2) AS est_monthly_cost_usd
+FROM daily_storage
 ORDER BY usage_date DESC;
 
 COMMENT ON VIEW O2C_ENH_STORAGE_GROWTH IS 
