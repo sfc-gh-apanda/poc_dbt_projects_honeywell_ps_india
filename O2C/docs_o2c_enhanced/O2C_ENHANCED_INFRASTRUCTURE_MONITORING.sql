@@ -459,7 +459,6 @@ SELECT
     first_authentication_factor AS auth_method,
     error_code,
     error_message,
-    connection_representative,
     -- Time-based grouping for pattern detection
     DATE(event_timestamp) AS failure_date,
     HOUR(event_timestamp) AS failure_hour,
