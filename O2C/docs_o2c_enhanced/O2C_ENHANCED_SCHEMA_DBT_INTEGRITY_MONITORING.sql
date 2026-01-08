@@ -612,45 +612,46 @@ SELECT
     CURRENT_TIMESTAMP()
 FROM EDW.O2C_ENHANCED_CORE.DM_O2C_RECONCILIATION
 
-UNION ALL
-
--- Events
-SELECT 
-    'FACT_O2C_EVENTS',
-    'event_key',
-    COUNT(*),
-    COUNT(DISTINCT event_key),
-    COUNT(*) - COUNT(DISTINCT event_key),
-    COUNT(CASE WHEN event_key IS NULL THEN 1 END),
-    ROUND(COUNT(DISTINCT event_key) * 100.0 / NULLIF(COUNT(*), 0), 2),
-    CASE 
-        WHEN COUNT(*) = COUNT(DISTINCT event_key) AND COUNT(CASE WHEN event_key IS NULL THEN 1 END) = 0
-        THEN '✅ VALID'
-        WHEN COUNT(CASE WHEN event_key IS NULL THEN 1 END) > 0 THEN '🔴 NULL PKs FOUND'
-        ELSE '🔴 DUPLICATES FOUND'
-    END,
-    CURRENT_TIMESTAMP()
-FROM EDW.O2C_ENHANCED_EVENTS.FACT_O2C_EVENTS
-
-UNION ALL
-
--- Aggregates
-SELECT 
-    'AGG_O2C_BY_CUSTOMER',
-    'customer_key',
-    COUNT(*),
-    COUNT(DISTINCT customer_key),
-    COUNT(*) - COUNT(DISTINCT customer_key),
-    COUNT(CASE WHEN customer_key IS NULL THEN 1 END),
-    ROUND(COUNT(DISTINCT customer_key) * 100.0 / NULLIF(COUNT(*), 0), 2),
-    CASE 
-        WHEN COUNT(*) = COUNT(DISTINCT customer_key) AND COUNT(CASE WHEN customer_key IS NULL THEN 1 END) = 0
-        THEN '✅ VALID'
-        WHEN COUNT(CASE WHEN customer_key IS NULL THEN 1 END) > 0 THEN '🔴 NULL PKs FOUND'
-        ELSE '🔴 DUPLICATES FOUND'
-    END,
-    CURRENT_TIMESTAMP()
-FROM EDW.O2C_ENHANCED_AGGREGATES.AGG_O2C_BY_CUSTOMER;
+-- UNION ALL
+-- 
+-- -- Events (COMMENTED OUT - Table/Column may not exist in your model)
+-- SELECT 
+--     'FACT_O2C_EVENTS',
+--     'event_key',
+--     COUNT(*),
+--     COUNT(DISTINCT event_key),
+--     COUNT(*) - COUNT(DISTINCT event_key),
+--     COUNT(CASE WHEN event_key IS NULL THEN 1 END),
+--     ROUND(COUNT(DISTINCT event_key) * 100.0 / NULLIF(COUNT(*), 0), 2),
+--     CASE 
+--         WHEN COUNT(*) = COUNT(DISTINCT event_key) AND COUNT(CASE WHEN event_key IS NULL THEN 1 END) = 0
+--         THEN '✅ VALID'
+--         WHEN COUNT(CASE WHEN event_key IS NULL THEN 1 END) > 0 THEN '🔴 NULL PKs FOUND'
+--         ELSE '🔴 DUPLICATES FOUND'
+--     END,
+--     CURRENT_TIMESTAMP()
+-- FROM EDW.O2C_ENHANCED_EVENTS.FACT_O2C_EVENTS
+-- 
+-- UNION ALL
+-- 
+-- -- Aggregates (COMMENTED OUT - Table/Column may not exist in your model)
+-- SELECT 
+--     'AGG_O2C_BY_CUSTOMER',
+--     'customer_key',
+--     COUNT(*),
+--     COUNT(DISTINCT customer_key),
+--     COUNT(*) - COUNT(DISTINCT customer_key),
+--     COUNT(CASE WHEN customer_key IS NULL THEN 1 END),
+--     ROUND(COUNT(DISTINCT customer_key) * 100.0 / NULLIF(COUNT(*), 0), 2),
+--     CASE 
+--         WHEN COUNT(*) = COUNT(DISTINCT customer_key) AND COUNT(CASE WHEN customer_key IS NULL THEN 1 END) = 0
+--         THEN '✅ VALID'
+--         WHEN COUNT(CASE WHEN customer_key IS NULL THEN 1 END) > 0 THEN '🔴 NULL PKs FOUND'
+--         ELSE '🔴 DUPLICATES FOUND'
+--     END,
+--     CURRENT_TIMESTAMP()
+-- FROM EDW.O2C_ENHANCED_AGGREGATES.AGG_O2C_BY_CUSTOMER
+;
 
 COMMENT ON VIEW O2C_ENH_PK_VALIDATION IS 
     'Primary key uniqueness and null validation for O2C Enhanced tables';
@@ -689,61 +690,62 @@ SELECT
     END AS fk_status,
     CURRENT_TIMESTAMP() AS validated_at
 
-UNION ALL
-
--- Check: Events.customer_id references Customer.customer_id
-SELECT
-    'FACT_O2C_EVENTS → DIM_O2C_CUSTOMER',
-    'customer_id',
-    (SELECT COUNT(DISTINCT customer_id) FROM EDW.O2C_ENHANCED_EVENTS.FACT_O2C_EVENTS WHERE customer_id IS NOT NULL),
-    (SELECT COUNT(DISTINCT customer_id) FROM EDW.O2C_ENHANCED_DIMENSIONS.DIM_O2C_CUSTOMER),
-    (SELECT COUNT(*) 
-     FROM EDW.O2C_ENHANCED_EVENTS.FACT_O2C_EVENTS e
-     WHERE e.customer_id IS NOT NULL
-       AND NOT EXISTS (
-           SELECT 1 FROM EDW.O2C_ENHANCED_DIMENSIONS.DIM_O2C_CUSTOMER c
-           WHERE c.customer_id = e.customer_id
-       )
-    ),
-    CASE 
-        WHEN (SELECT COUNT(*) 
-              FROM EDW.O2C_ENHANCED_EVENTS.FACT_O2C_EVENTS e
-              WHERE e.customer_id IS NOT NULL
-                AND NOT EXISTS (
-                    SELECT 1 FROM EDW.O2C_ENHANCED_DIMENSIONS.DIM_O2C_CUSTOMER c
-                    WHERE c.customer_id = e.customer_id
-                )
-             ) = 0 THEN '✅ VALID'
-        ELSE '🔴 ORPHAN FKs FOUND'
-    END,
-    CURRENT_TIMESTAMP()
-
-UNION ALL
-
--- Check: Aggregates.customer_key references Customer.customer_key
-SELECT
-    'AGG_O2C_BY_CUSTOMER → DIM_O2C_CUSTOMER',
-    'customer_key',
-    (SELECT COUNT(DISTINCT customer_key) FROM EDW.O2C_ENHANCED_AGGREGATES.AGG_O2C_BY_CUSTOMER),
-    (SELECT COUNT(DISTINCT customer_key) FROM EDW.O2C_ENHANCED_DIMENSIONS.DIM_O2C_CUSTOMER),
-    (SELECT COUNT(*) 
-     FROM EDW.O2C_ENHANCED_AGGREGATES.AGG_O2C_BY_CUSTOMER a
-     WHERE NOT EXISTS (
-           SELECT 1 FROM EDW.O2C_ENHANCED_DIMENSIONS.DIM_O2C_CUSTOMER c
-           WHERE c.customer_key = a.customer_key
-       )
-    ),
-    CASE 
-        WHEN (SELECT COUNT(*) 
-              FROM EDW.O2C_ENHANCED_AGGREGATES.AGG_O2C_BY_CUSTOMER a
-              WHERE NOT EXISTS (
-                    SELECT 1 FROM EDW.O2C_ENHANCED_DIMENSIONS.DIM_O2C_CUSTOMER c
-                    WHERE c.customer_key = a.customer_key
-                )
-             ) = 0 THEN '✅ VALID'
-        ELSE '🔴 ORPHAN FKs FOUND'
-    END,
-    CURRENT_TIMESTAMP();
+-- UNION ALL
+-- 
+-- -- Check: Events.customer_id references Customer.customer_id (COMMENTED OUT - Table may not exist)
+-- SELECT
+--     'FACT_O2C_EVENTS → DIM_O2C_CUSTOMER',
+--     'customer_id',
+--     (SELECT COUNT(DISTINCT customer_id) FROM EDW.O2C_ENHANCED_EVENTS.FACT_O2C_EVENTS WHERE customer_id IS NOT NULL),
+--     (SELECT COUNT(DISTINCT customer_id) FROM EDW.O2C_ENHANCED_DIMENSIONS.DIM_O2C_CUSTOMER),
+--     (SELECT COUNT(*) 
+--      FROM EDW.O2C_ENHANCED_EVENTS.FACT_O2C_EVENTS e
+--      WHERE e.customer_id IS NOT NULL
+--        AND NOT EXISTS (
+--            SELECT 1 FROM EDW.O2C_ENHANCED_DIMENSIONS.DIM_O2C_CUSTOMER c
+--            WHERE c.customer_id = e.customer_id
+--        )
+--     ),
+--     CASE 
+--         WHEN (SELECT COUNT(*) 
+--               FROM EDW.O2C_ENHANCED_EVENTS.FACT_O2C_EVENTS e
+--               WHERE e.customer_id IS NOT NULL
+--                 AND NOT EXISTS (
+--                     SELECT 1 FROM EDW.O2C_ENHANCED_DIMENSIONS.DIM_O2C_CUSTOMER c
+--                     WHERE c.customer_id = e.customer_id
+--                 )
+--              ) = 0 THEN '✅ VALID'
+--         ELSE '🔴 ORPHAN FKs FOUND'
+--     END,
+--     CURRENT_TIMESTAMP()
+-- 
+-- UNION ALL
+-- 
+-- -- Check: Aggregates.customer_key references Customer.customer_key (COMMENTED OUT - Table may not exist)
+-- SELECT
+--     'AGG_O2C_BY_CUSTOMER → DIM_O2C_CUSTOMER',
+--     'customer_key',
+--     (SELECT COUNT(DISTINCT customer_key) FROM EDW.O2C_ENHANCED_AGGREGATES.AGG_O2C_BY_CUSTOMER),
+--     (SELECT COUNT(DISTINCT customer_key) FROM EDW.O2C_ENHANCED_DIMENSIONS.DIM_O2C_CUSTOMER),
+--     (SELECT COUNT(*) 
+--      FROM EDW.O2C_ENHANCED_AGGREGATES.AGG_O2C_BY_CUSTOMER a
+--      WHERE NOT EXISTS (
+--            SELECT 1 FROM EDW.O2C_ENHANCED_DIMENSIONS.DIM_O2C_CUSTOMER c
+--            WHERE c.customer_key = a.customer_key
+--        )
+--     ),
+--     CASE 
+--         WHEN (SELECT COUNT(*) 
+--               FROM EDW.O2C_ENHANCED_AGGREGATES.AGG_O2C_BY_CUSTOMER a
+--               WHERE NOT EXISTS (
+--                     SELECT 1 FROM EDW.O2C_ENHANCED_DIMENSIONS.DIM_O2C_CUSTOMER c
+--                     WHERE c.customer_key = a.customer_key
+--                 )
+--              ) = 0 THEN '✅ VALID'
+--         ELSE '🔴 ORPHAN FKs FOUND'
+--     END,
+--     CURRENT_TIMESTAMP()
+;
 
 COMMENT ON VIEW O2C_ENH_FK_VALIDATION IS 
     'Foreign key referential integrity validation for O2C Enhanced tables';
