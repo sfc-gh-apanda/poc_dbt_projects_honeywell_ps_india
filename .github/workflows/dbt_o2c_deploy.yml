@@ -101,14 +101,14 @@ jobs:
         env:
           SNOWFLAKE_PRIVATE_KEY: ${{ secrets.SNOWFLAKE_PRIVATE_KEY }}
         run: |
-          mkdir -p ~/.dbt
+          mkdir -p $HOME/.dbt
           
           # Write private key to file
-          echo "$SNOWFLAKE_PRIVATE_KEY" > ~/.dbt/rsa_key.p8
-          chmod 600 ~/.dbt/rsa_key.p8
+          echo "$SNOWFLAKE_PRIVATE_KEY" > $HOME/.dbt/rsa_key.p8
+          chmod 600 $HOME/.dbt/rsa_key.p8
           
-          # Create profiles.yml
-          cat > ~/.dbt/profiles.yml << EOF
+          # Create profiles.yml with absolute path
+          cat > $HOME/.dbt/profiles.yml << EOF
           snowflake_o2c_enhanced:
             target: prod
             outputs:
@@ -117,7 +117,7 @@ jobs:
                 account: ${{ secrets.SNOWFLAKE_ACCOUNT }}
                 user: github_actions_service_user
                 authenticator: snowflake_jwt
-                private_key_path: ~/.dbt/rsa_key.p8
+                private_key_path: $HOME/.dbt/rsa_key.p8
                 role: GITHUB_CICD_ROLE
                 database: EDW
                 warehouse: COMPUTE_WH
@@ -202,7 +202,7 @@ jobs:
       
       - name: 🧹 Cleanup
         if: always()
-        run: rm -f ~/.dbt/rsa_key.p8
+        run: rm -f $HOME/.dbt/rsa_key.p8
 
   # ═══════════════════════════════════════════════════════════════════════════
   # Job 2: Deploy Semantic Views (depends on Core)
@@ -238,14 +238,14 @@ jobs:
         env:
           SNOWFLAKE_PRIVATE_KEY: ${{ secrets.SNOWFLAKE_PRIVATE_KEY }}
         run: |
-          mkdir -p ~/.dbt
+          mkdir -p $HOME/.dbt
           
           # Write private key to file
-          echo "$SNOWFLAKE_PRIVATE_KEY" > ~/.dbt/rsa_key.p8
-          chmod 600 ~/.dbt/rsa_key.p8
+          echo "$SNOWFLAKE_PRIVATE_KEY" > $HOME/.dbt/rsa_key.p8
+          chmod 600 $HOME/.dbt/rsa_key.p8
           
-          # Create profiles.yml
-          cat > ~/.dbt/profiles.yml << EOF
+          # Create profiles.yml with absolute path
+          cat > $HOME/.dbt/profiles.yml << EOF
           snowflake_o2c_enhanced:
             target: prod
             outputs:
@@ -254,7 +254,7 @@ jobs:
                 account: ${{ secrets.SNOWFLAKE_ACCOUNT }}
                 user: github_actions_service_user
                 authenticator: snowflake_jwt
-                private_key_path: ~/.dbt/rsa_key.p8
+                private_key_path: $HOME/.dbt/rsa_key.p8
                 role: GITHUB_CICD_ROLE
                 database: EDW
                 warehouse: COMPUTE_WH
@@ -296,7 +296,7 @@ jobs:
       
       - name: 🧹 Cleanup
         if: always()
-        run: rm -f ~/.dbt/rsa_key.p8
+        run: rm -f $HOME/.dbt/rsa_key.p8
 
   # ═══════════════════════════════════════════════════════════════════════════
   # Job 3: PR Check (runs on pull requests only)
