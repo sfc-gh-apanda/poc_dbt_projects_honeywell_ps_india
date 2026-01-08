@@ -1,0 +1,5 @@
+# O2C Enhanced - Python Dependencies
+# Used by GitHub Actions CI/CD
+
+dbt-snowflake==1.7.0
+

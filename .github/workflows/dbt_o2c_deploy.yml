@@ -83,6 +83,8 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: 'requirements.txt'
       
       # ─────────────────────────────────────────────────────────────────────────
       # Step 3: Install dbt
@@ -90,7 +92,7 @@ jobs:
       - name: 📦 Install dbt-snowflake
         run: |
           pip install --upgrade pip
-          pip install dbt-snowflake==${{ env.DBT_VERSION }}
+          pip install -r requirements.txt
           dbt --version
       
       # ─────────────────────────────────────────────────────────────────────────
@@ -223,10 +225,12 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: 'requirements.txt'
       
       - name: 📦 Install dbt-snowflake
         run: |
-          pip install dbt-snowflake==${{ env.DBT_VERSION }}
+          pip install -r requirements.txt
       
       - name: ❄️ Set up Snowflake CLI (OIDC)
         uses: snowflakedb/snowflake-cli-action@v2.0
@@ -304,9 +308,11 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: 'requirements.txt'
       
       - name: 📦 Install dbt-snowflake
-        run: pip install dbt-snowflake==${{ env.DBT_VERSION }}
+        run: pip install -r requirements.txt
       
       - name: 🔍 dbt Compile (Syntax Check)
         working-directory: ./O2C/dbt_o2c_enhanced
