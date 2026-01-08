@@ -906,10 +906,10 @@ SELECT '✅ VIEW 17 CREATED: O2C_ENH_TASK_PERFORMANCE' AS status;
 
 CREATE OR REPLACE VIEW O2C_ENH_STREAM_LAG AS
 SELECT
-    stream_catalog AS database_name,
-    stream_schema AS schema_name,
-    stream_name,
-    table_name AS source_table,
+    table_catalog AS database_name,
+    table_schema AS schema_name,
+    table_name AS stream_name,
+    source_table_name AS source_table,
     stream_type,
     stale,
     stale_after,
@@ -932,8 +932,10 @@ SELECT
         THEN 'Process stream soon to avoid data loss'
         ELSE 'No action needed'
     END AS recommendation
-FROM EDW.INFORMATION_SCHEMA.STREAMS
-WHERE stream_schema LIKE 'O2C%'
+FROM SNOWFLAKE.ACCOUNT_USAGE.STREAMS
+WHERE table_catalog = 'EDW'
+  AND table_schema LIKE 'O2C%'
+  AND deleted IS NULL
 ORDER BY 
     CASE stale WHEN 'YES' THEN 1 ELSE 2 END,
     hours_until_stale ASC NULLS LAST;
