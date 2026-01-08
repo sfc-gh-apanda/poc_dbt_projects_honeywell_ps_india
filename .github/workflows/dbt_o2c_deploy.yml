@@ -46,9 +46,8 @@ on:
   schedule:
     - cron: '0 6 * * *'  # Daily at 6 AM UTC
 
-# Required for OIDC authentication
+# Permissions
 permissions:
-  id-token: write
   contents: read
 
 env:
@@ -96,21 +95,20 @@ jobs:
           dbt --version
       
       # ─────────────────────────────────────────────────────────────────────────
-      # Step 4: Setup Snowflake CLI with OIDC
-      # ─────────────────────────────────────────────────────────────────────────
-      - name: ❄️ Set up Snowflake CLI (OIDC)
-        uses: snowflakedb/snowflake-cli-action@v2.0
-        with:
-          cli-version: "3.11.0"
-          use-oidc: true
-      
-      # ─────────────────────────────────────────────────────────────────────────
-      # Step 5: Configure dbt profiles
+      # Step 4: Configure dbt profiles with Key-Pair Auth
       # ─────────────────────────────────────────────────────────────────────────
       - name: 🔧 Configure dbt profiles
+        env:
+          SNOWFLAKE_PRIVATE_KEY: ${{ secrets.SNOWFLAKE_PRIVATE_KEY }}
         run: |
           mkdir -p ~/.dbt
-          cat > ~/.dbt/profiles.yml << 'EOF'
+          
+          # Write private key to file
+          echo "$SNOWFLAKE_PRIVATE_KEY" > ~/.dbt/rsa_key.p8
+          chmod 600 ~/.dbt/rsa_key.p8
+          
+          # Create profiles.yml
+          cat > ~/.dbt/profiles.yml << EOF
           snowflake_o2c_enhanced:
             target: prod
             outputs:
@@ -118,8 +116,8 @@ jobs:
                 type: snowflake
                 account: ${{ secrets.SNOWFLAKE_ACCOUNT }}
                 user: github_actions_service_user
-                authenticator: oauth
-                token: ${{ env.SNOWFLAKE_TOKEN }}
+                authenticator: snowflake_jwt
+                private_key_path: ~/.dbt/rsa_key.p8
                 role: GITHUB_CICD_ROLE
                 database: EDW
                 warehouse: COMPUTE_WH
@@ -201,6 +199,10 @@ jobs:
           echo "| **Triggered By** | ${{ github.event_name }} |" >> $GITHUB_STEP_SUMMARY
           echo "| **Actor** | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
           echo "| **Full Refresh** | ${{ github.event.inputs.full_refresh || 'false' }} |" >> $GITHUB_STEP_SUMMARY
+      
+      - name: 🧹 Cleanup
+        if: always()
+        run: rm -f ~/.dbt/rsa_key.p8
 
   # ═══════════════════════════════════════════════════════════════════════════
   # Job 2: Deploy Semantic Views (depends on Core)
@@ -232,16 +234,18 @@ jobs:
         run: |
           pip install -r requirements.txt
       
-      - name: ❄️ Set up Snowflake CLI (OIDC)
-        uses: snowflakedb/snowflake-cli-action@v2.0
-        with:
-          cli-version: "3.11.0"
-          use-oidc: true
-      
       - name: 🔧 Configure dbt profiles
+        env:
+          SNOWFLAKE_PRIVATE_KEY: ${{ secrets.SNOWFLAKE_PRIVATE_KEY }}
         run: |
           mkdir -p ~/.dbt
-          cat > ~/.dbt/profiles.yml << 'EOF'
+          
+          # Write private key to file
+          echo "$SNOWFLAKE_PRIVATE_KEY" > ~/.dbt/rsa_key.p8
+          chmod 600 ~/.dbt/rsa_key.p8
+          
+          # Create profiles.yml
+          cat > ~/.dbt/profiles.yml << EOF
           snowflake_o2c_enhanced:
             target: prod
             outputs:
@@ -249,8 +253,8 @@ jobs:
                 type: snowflake
                 account: ${{ secrets.SNOWFLAKE_ACCOUNT }}
                 user: github_actions_service_user
-                authenticator: oauth
-                token: ${{ env.SNOWFLAKE_TOKEN }}
+                authenticator: snowflake_jwt
+                private_key_path: ~/.dbt/rsa_key.p8
                 role: GITHUB_CICD_ROLE
                 database: EDW
                 warehouse: COMPUTE_WH
@@ -289,6 +293,10 @@ jobs:
           echo "| **Status** | ${{ steps.dbt_semantic_build.outcome }} |" >> $GITHUB_STEP_SUMMARY
           echo "| **Run ID** | ${{ github.run_id }} |" >> $GITHUB_STEP_SUMMARY
           echo "| **Commit** | ${{ github.sha }} |" >> $GITHUB_STEP_SUMMARY
+      
+      - name: 🧹 Cleanup
+        if: always()
+        run: rm -f ~/.dbt/rsa_key.p8
 
   # ═══════════════════════════════════════════════════════════════════════════
   # Job 3: PR Check (runs on pull requests only)
