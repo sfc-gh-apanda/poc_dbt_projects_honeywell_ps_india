@@ -225,14 +225,12 @@ SELECT '✅ VIEW 3 CREATED: O2C_ENH_WAREHOUSE_CONCURRENCY' AS status;
 
 CREATE OR REPLACE VIEW O2C_ENH_WAREHOUSE_SCALING AS
 SELECT
-    start_time,
-    end_time,
+    timestamp AS event_time,
     warehouse_name,
     cluster_number,
     event_name,
     event_reason,
     event_state,
-    DATEDIFF('second', start_time, end_time) AS duration_seconds,
     CASE 
         WHEN event_name = 'SCALE_UP' THEN '⬆️ SCALE UP'
         WHEN event_name = 'SCALE_DOWN' THEN '⬇️ SCALE DOWN'
@@ -247,8 +245,8 @@ SELECT
         ELSE event_reason
     END AS reason_description
 FROM SNOWFLAKE.ACCOUNT_USAGE.WAREHOUSE_EVENTS_HISTORY
-WHERE start_time >= DATEADD('day', -14, CURRENT_DATE())
-ORDER BY start_time DESC;
+WHERE timestamp >= DATEADD('day', -14, CURRENT_DATE())
+ORDER BY timestamp DESC;
 
 COMMENT ON VIEW O2C_ENH_WAREHOUSE_SCALING IS 
     'Multi-cluster warehouse scaling events history';
