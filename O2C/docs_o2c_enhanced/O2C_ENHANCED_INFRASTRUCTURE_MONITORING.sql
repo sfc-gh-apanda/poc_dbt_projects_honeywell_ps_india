@@ -348,7 +348,7 @@ SELECT
     ROUND(COUNT(CASE WHEN is_success = 'NO' THEN 1 END) * 100.0 / NULLIF(COUNT(*), 0), 1) AS failure_rate_pct,
     MIN(event_timestamp) AS first_login,
     MAX(event_timestamp) AS last_login,
-    LISTAGG(DISTINCT client_ip, ', ') WITHIN GROUP (ORDER BY client_ip) AS ip_addresses,
+    LISTAGG(DISTINCT client_ip, ', ') AS ip_addresses,
     CASE 
         WHEN COUNT(CASE WHEN is_success = 'NO' THEN 1 END) > 5 THEN '🔴 HIGH FAILURES'
         WHEN COUNT(CASE WHEN is_success = 'NO' THEN 1 END) > 0 THEN '🟡 HAS FAILURES'
@@ -377,7 +377,7 @@ SELECT
     schema_name,
     COUNT(*) AS query_count,
     COUNT(DISTINCT query_type) AS query_type_variety,
-    LISTAGG(DISTINCT query_type, ', ') WITHIN GROUP (ORDER BY query_type) AS query_types_used,
+    LISTAGG(DISTINCT query_type, ', ') AS query_types_used,
     ROUND(SUM(bytes_scanned) / 1024 / 1024 / 1024, 2) AS gb_scanned,
     ROUND(SUM(bytes_written) / 1024 / 1024 / 1024, 2) AS gb_written,
     MIN(start_time) AS first_access,
@@ -419,7 +419,7 @@ SELECT
     COUNT(DISTINCT DATE(start_time)) AS active_days,
     COUNT(*) AS total_queries,
     COUNT(DISTINCT database_name || '.' || schema_name) AS schemas_accessed,
-    LISTAGG(DISTINCT database_name || '.' || schema_name, ', ') WITHIN GROUP (ORDER BY schema_name) AS schemas_list,
+    LISTAGG(DISTINCT database_name || '.' || schema_name, ', ') AS schemas_list,
     ROUND(SUM(bytes_scanned) / 1024 / 1024 / 1024, 2) AS total_gb_scanned,
     MIN(start_time) AS first_activity,
     MAX(start_time) AS last_activity,
