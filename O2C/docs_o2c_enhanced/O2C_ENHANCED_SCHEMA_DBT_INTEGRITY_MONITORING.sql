@@ -280,7 +280,7 @@ WITH models AS (
 test_executions AS (
     -- Get test execution counts per model
     SELECT
-        REGEXP_SUBSTR(query_text, 'FROM\\s+(?:EDW\\.)?([\\w.]+)', 1, 1, 'ie', 1) AS tested_table,
+        REGEXP_SUBSTR(query_text, 'FROM\\s+([\\w_]+\\.[\\w_]+)', 1, 1, 'ie', 1) AS tested_table,
         COUNT(*) AS test_count,
         SUM(CASE WHEN execution_status = 'SUCCESS' THEN 1 ELSE 0 END) AS passed_tests,
         SUM(CASE WHEN execution_status = 'FAIL' THEN 1 ELSE 0 END) AS failed_tests,
@@ -367,9 +367,9 @@ dependencies AS (
     SELECT DISTINCT
         SPLIT_PART(target_model, '.', -1) AS model_name,
         -- Extract source tables from FROM/JOIN clauses
-        REGEXP_SUBSTR(query_text, 'FROM\\s+(?:EDW\\.)?([\\w_]+\\.\\w+)', 1, 1, 'ie', 1) AS source_1,
-        REGEXP_SUBSTR(query_text, 'JOIN\\s+(?:EDW\\.)?([\\w_]+\\.\\w+)', 1, 1, 'ie', 1) AS source_2,
-        REGEXP_SUBSTR(query_text, 'JOIN\\s+(?:EDW\\.)?([\\w_]+\\.\\w+)', 1, 2, 'ie', 1) AS source_3
+        REGEXP_SUBSTR(query_text, 'FROM\\s+([\\w_]+\\.[\\w_]+)', 1, 1, 'ie', 1) AS source_1,
+        REGEXP_SUBSTR(query_text, 'JOIN\\s+([\\w_]+\\.[\\w_]+)', 1, 1, 'ie', 1) AS source_2,
+        REGEXP_SUBSTR(query_text, 'JOIN\\s+([\\w_]+\\.[\\w_]+)', 1, 2, 'ie', 1) AS source_3
     FROM model_queries
     WHERE target_model IS NOT NULL
 )
