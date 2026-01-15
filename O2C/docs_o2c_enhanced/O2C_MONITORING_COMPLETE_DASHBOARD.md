@@ -1347,32 +1347,48 @@ ORDER BY total_errors DESC;
 
 ```sql
 -- Schema-Level Error Distribution
+WITH schema_errors AS (
+    SELECT 
+        schema_name,
+        COUNT(*) AS error_count,
+        COUNT(DISTINCT error_category) AS error_variety,
+        COUNT(DISTINCT query_type) AS query_type_variety,
+        COUNT(DISTINCT user_name) AS affected_users
+    FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_ERROR_LOG
+    WHERE error_time >= DATEADD('day', -7, CURRENT_DATE())
+    GROUP BY schema_name
+),
+top_errors AS (
+    SELECT 
+        schema_name,
+        error_category,
+        COUNT(*) AS category_count,
+        ROW_NUMBER() OVER (PARTITION BY schema_name ORDER BY COUNT(*) DESC) AS rn
+    FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_ERROR_LOG
+    WHERE error_time >= DATEADD('day', -7, CURRENT_DATE())
+    GROUP BY schema_name, error_category
+)
 SELECT 
-    schema_name,
-    COUNT(*) AS error_count,
-    COUNT(DISTINCT error_category) AS error_variety,
-    COUNT(DISTINCT query_type) AS query_type_variety,
-    COUNT(DISTINCT user_name) AS affected_users,
-    ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (), 1) AS pct_of_total_errors,
-    -- Most common error in this schema
-    (SELECT error_category 
-     FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_ERROR_LOG el2
-     WHERE el2.schema_name = el.schema_name
-       AND el2.error_time >= DATEADD('day', -7, CURRENT_DATE())
-     GROUP BY error_category
-     ORDER BY COUNT(*) DESC
-     LIMIT 1) AS most_common_error,
+    se.schema_name,
+    se.error_count,
+    se.error_variety,
+    se.query_type_variety,
+    se.affected_users,
+    ROUND(se.error_count * 100.0 / SUM(se.error_count) OVER (), 1) AS pct_of_total_errors,
+    te.error_category AS most_common_error,
+    te.category_count AS most_common_error_count,
     -- Schema health indicator
     CASE 
-        WHEN COUNT(*) > 100 THEN '🔴 CRITICAL - Schema has major issues'
-        WHEN COUNT(*) > 50 THEN '🟠 HIGH - Review schema objects'
-        WHEN COUNT(*) > 20 THEN '🟡 MODERATE - Monitor'
+        WHEN se.error_count > 100 THEN '🔴 CRITICAL - Schema has major issues'
+        WHEN se.error_count > 50 THEN '🟠 HIGH - Review schema objects'
+        WHEN se.error_count > 20 THEN '🟡 MODERATE - Monitor'
         ELSE '🟢 HEALTHY'
     END AS schema_health
-FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_ERROR_LOG el
-WHERE error_time >= DATEADD('day', -7, CURRENT_DATE())
-GROUP BY schema_name
-ORDER BY error_count DESC;
+FROM schema_errors se
+LEFT JOIN top_errors te 
+    ON se.schema_name = te.schema_name 
+    AND te.rn = 1
+ORDER BY se.error_count DESC;
 ```
 
 ---
