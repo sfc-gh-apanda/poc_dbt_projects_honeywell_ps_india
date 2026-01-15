@@ -1039,15 +1039,824 @@ For each query above:
 
 ---
 
+## 🔴 SECTION 9: ERROR ANALYSIS & DIAGNOSTICS
+
+**Purpose:** Comprehensive error monitoring, root cause analysis, and failure tracking  
+**Coverage:** Error logs, trends, build failures, recurring patterns, impact analysis  
+**Views Used:** `O2C_ENH_ERROR_LOG`, `O2C_ENH_ERROR_TREND`, `O2C_ENH_BUILD_FAILURE_DETAILS`
+
+---
+
+### TILE 34: Error Log - Recent Failures
+
+**Type:** Table with error categorization  
+**Refresh:** Every 5 minutes
+
+```sql
+-- Detailed Error Log (Last 7 Days)
+SELECT 
+    query_id,
+    error_time,
+    user_name,
+    warehouse_name,
+    schema_name,
+    query_type,
+    error_code,
+    error_message,
+    error_category,
+    LEFT(query_text_preview, 200) AS query_preview,
+    DATEDIFF('hour', error_time, CURRENT_TIMESTAMP()) AS hours_ago,
+    -- Visual indicator
+    CASE error_category
+        WHEN 'SYNTAX_ERROR' THEN '🔴 SYNTAX'
+        WHEN 'OBJECT_NOT_FOUND' THEN '🟠 OBJECT MISSING'
+        WHEN 'ACCESS_DENIED' THEN '🟡 ACCESS'
+        WHEN 'INVALID_IDENTIFIER' THEN '🟣 IDENTIFIER'
+        WHEN 'TIMEOUT' THEN '⚫ TIMEOUT'
+        WHEN 'RESOURCE_LIMIT' THEN '🔵 RESOURCE'
+        ELSE '⚪ OTHER'
+    END AS category_display
+FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_ERROR_LOG
+ORDER BY error_time DESC
+LIMIT 100;
+```
+
+**Error Categories:**
+- `SYNTAX_ERROR` - SQL syntax issues
+- `OBJECT_NOT_FOUND` - Missing tables/views/columns
+- `ACCESS_DENIED` - Permission/privilege issues
+- `INVALID_IDENTIFIER` - Column/object name errors
+- `TIMEOUT` - Query execution timeouts
+- `RESOURCE_LIMIT` - Memory/compute resource limits
+- `OTHER` - Uncategorized errors
+
+---
+
+### TILE 35: Error Trend & Success Rate
+
+**Type:** Dual-axis line chart  
+**Refresh:** Every 15 minutes
+
+```sql
+-- Error Trend Analysis (Last 30 Days)
+SELECT 
+    date,
+    total_queries,
+    error_count,
+    success_count,
+    error_rate_pct,
+    success_rate_pct,
+    ROUND(error_rate_7day_avg, 2) AS error_rate_7day_avg,
+    -- Health indicator
+    CASE 
+        WHEN error_rate_pct > 10 THEN '🔴 HIGH ERROR RATE (>10%)'
+        WHEN error_rate_pct > 5 THEN '🟠 ELEVATED (5-10%)'
+        WHEN error_rate_pct > 1 THEN '🟡 NORMAL (1-5%)'
+        WHEN error_rate_pct > 0 THEN '🟢 GOOD (<1%)'
+        ELSE '✅ EXCELLENT (0%)'
+    END AS health_status,
+    -- Trend indicator
+    CASE 
+        WHEN error_rate_pct > LAG(error_rate_pct) OVER (ORDER BY date) THEN '📈 INCREASING'
+        WHEN error_rate_pct < LAG(error_rate_pct) OVER (ORDER BY date) THEN '📉 DECREASING'
+        ELSE '➡️ STABLE'
+    END AS trend
+FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_ERROR_TREND
+ORDER BY date DESC;
+```
+
+**Visualization:** 
+- Line 1 (left axis): Error count
+- Line 2 (right axis): Error rate %
+- Line 3 (overlay): 7-day moving average
+
+---
+
+### TILE 36: Error Breakdown by Category
+
+**Type:** Pie chart / Horizontal bar chart  
+**Refresh:** Every hour
+
+```sql
+-- Error Distribution by Category
+SELECT 
+    error_category,
+    COUNT(*) AS error_count,
+    COUNT(DISTINCT user_name) AS affected_users,
+    COUNT(DISTINCT schema_name) AS affected_schemas,
+    COUNT(DISTINCT DATE(error_time)) AS days_with_errors,
+    MIN(error_time) AS first_occurrence,
+    MAX(error_time) AS last_occurrence,
+    ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (), 1) AS pct_of_total,
+    -- Priority assessment
+    CASE 
+        WHEN COUNT(*) > 100 THEN '🔴 CRITICAL - Immediate action required'
+        WHEN COUNT(*) > 50 THEN '🟠 HIGH - Review soon'
+        WHEN COUNT(*) > 10 THEN '🟡 MEDIUM - Monitor'
+        ELSE '🟢 LOW - Normal'
+    END AS priority
+FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_ERROR_LOG
+WHERE error_time >= DATEADD('day', -7, CURRENT_DATE())
+GROUP BY error_category
+ORDER BY error_count DESC;
+```
+
+---
+
+### TILE 37: Build Failure Details (Enhanced)
+
+**Type:** Table with severity and affected objects  
+**Refresh:** Every 5 minutes
+
+```sql
+-- Comprehensive Build Failure Analysis
+SELECT 
+    failure_time,
+    user_name,
+    warehouse_name,
+    schema_name,
+    error_category,
+    affected_object,
+    error_code,
+    LEFT(error_message, 150) AS error_summary,
+    execution_seconds,
+    minutes_ago,
+    recency_severity,
+    -- Actionable recommendation
+    CASE error_category
+        WHEN 'SYNTAX_ERROR' THEN '💡 Review SQL syntax'
+        WHEN 'OBJECT_NOT_FOUND' THEN '💡 Check object existence and spelling'
+        WHEN 'ACCESS_DENIED' THEN '💡 Verify role permissions'
+        WHEN 'INVALID_IDENTIFIER' THEN '💡 Validate column/table names'
+        WHEN 'TIMEOUT' THEN '💡 Optimize query or increase timeout'
+        WHEN 'RESOURCE_LIMIT' THEN '💡 Scale up warehouse or optimize query'
+        WHEN 'CONSTRAINT_VIOLATION' THEN '💡 Check data for duplicates/conflicts'
+        WHEN 'NULL_CONSTRAINT' THEN '💡 Handle NULL values in data'
+        WHEN 'DIVISION_BY_ZERO' THEN '💡 Add NULL/zero checks'
+        WHEN 'TYPE_CONVERSION' THEN '💡 Review data types and conversions'
+        ELSE '💡 Review error details and query logic'
+    END AS recommendation,
+    query_text_preview
+FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_BUILD_FAILURE_DETAILS
+ORDER BY 
+    CASE recency_severity 
+        WHEN 'CRITICAL' THEN 1 
+        WHEN 'HIGH' THEN 2 
+        WHEN 'MEDIUM' THEN 3 
+        ELSE 4 
+    END,
+    failure_time DESC
+LIMIT 50;
+```
+
+**Additional Error Categories:**
+- `CONSTRAINT_VIOLATION` - Primary key/unique constraint violations
+- `NULL_CONSTRAINT` - NOT NULL constraint violations
+- `DIVISION_BY_ZERO` - Mathematical errors
+- `TYPE_CONVERSION` - Data type casting issues
+
+---
+
+### TILE 38: Top Recurring Error Patterns
+
+**Type:** Table with occurrence frequency  
+**Refresh:** Every hour
+
+```sql
+-- Recurring Error Hot Spots
+SELECT 
+    error_category,
+    error_code,
+    LEFT(error_message, 200) AS error_pattern,
+    COUNT(*) AS occurrence_count,
+    COUNT(DISTINCT DATE(error_time)) AS days_affected,
+    COUNT(DISTINCT user_name) AS users_affected,
+    COUNT(DISTINCT schema_name) AS schemas_affected,
+    MIN(error_time) AS first_seen,
+    MAX(error_time) AS last_seen,
+    DATEDIFF('hour', MIN(error_time), MAX(error_time)) AS duration_hours,
+    -- Priority classification
+    CASE 
+        WHEN COUNT(*) > 50 THEN '🔴 CRITICAL - System-wide issue'
+        WHEN COUNT(*) > 20 THEN '🟠 HIGH - Needs immediate attention'
+        WHEN COUNT(*) > 5 THEN '🟡 MEDIUM - Monitor and address'
+        ELSE '🟢 LOW - Isolated incidents'
+    END AS priority,
+    -- Pattern indicator
+    CASE 
+        WHEN COUNT(DISTINCT DATE(error_time)) = 1 THEN '⚡ SPIKE - Single day'
+        WHEN COUNT(*) / NULLIF(COUNT(DISTINCT DATE(error_time)), 0) > 10 THEN '🔥 FREQUENT - Multiple per day'
+        ELSE '📊 RECURRING - Spread over time'
+    END AS pattern_type
+FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_ERROR_LOG
+WHERE error_time >= DATEADD('day', -7, CURRENT_DATE())
+GROUP BY error_category, error_code, LEFT(error_message, 200)
+HAVING COUNT(*) > 2
+ORDER BY occurrence_count DESC, days_affected DESC
+LIMIT 25;
+```
+
+---
+
+### TILE 39: Error Timeline - Hourly Heatmap
+
+**Type:** Heatmap (Date x Hour)  
+**Refresh:** Every hour
+
+```sql
+-- Hourly Error Distribution Pattern
+SELECT 
+    DATE(error_time) AS error_date,
+    HOUR(error_time) AS error_hour,
+    COUNT(*) AS error_count,
+    COUNT(DISTINCT user_name) AS unique_users,
+    COUNT(DISTINCT error_category) AS error_variety,
+    LISTAGG(DISTINCT error_category, ', ') WITHIN GROUP (ORDER BY error_category) AS error_types,
+    -- Peak detection
+    CASE 
+        WHEN COUNT(*) > 50 THEN '🔴 PEAK'
+        WHEN COUNT(*) > 20 THEN '🟠 HIGH'
+        WHEN COUNT(*) > 10 THEN '🟡 ELEVATED'
+        WHEN COUNT(*) > 5 THEN '🟢 MODERATE'
+        ELSE '⚪ LOW'
+    END AS intensity,
+    -- Time of day classification
+    CASE 
+        WHEN HOUR(error_time) BETWEEN 0 AND 5 THEN '🌙 OFF-HOURS'
+        WHEN HOUR(error_time) BETWEEN 6 AND 8 THEN '🌅 EARLY MORNING'
+        WHEN HOUR(error_time) BETWEEN 9 AND 17 THEN '☀️ BUSINESS HOURS'
+        WHEN HOUR(error_time) BETWEEN 18 AND 21 THEN '🌆 EVENING'
+        ELSE '🌃 LATE NIGHT'
+    END AS time_period
+FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_ERROR_LOG
+WHERE error_time >= DATEADD('day', -7, CURRENT_DATE())
+GROUP BY error_date, error_hour
+ORDER BY error_date DESC, error_hour DESC;
+```
+
+**Insights:** Identify peak error times for:
+- Scheduled job issues
+- Concurrent workload conflicts
+- Resource contention windows
+
+---
+
+### TILE 40: Error Analysis by User
+
+**Type:** Table with user-level metrics  
+**Refresh:** Daily
+
+```sql
+-- User Error Profile Analysis
+SELECT 
+    user_name,
+    COUNT(*) AS total_errors,
+    COUNT(DISTINCT error_category) AS error_variety,
+    COUNT(DISTINCT schema_name) AS schemas_accessed,
+    LISTAGG(DISTINCT error_category, ', ') WITHIN GROUP (ORDER BY error_category) AS error_types,
+    MIN(error_time) AS first_error,
+    MAX(error_time) AS last_error,
+    DATEDIFF('day', MIN(error_time), MAX(error_time)) AS error_span_days,
+    ROUND(COUNT(*) * 1.0 / NULLIF(DATEDIFF('day', MIN(error_time), MAX(error_time)), 0), 1) AS avg_errors_per_day,
+    -- User status assessment
+    CASE 
+        WHEN COUNT(*) > 100 THEN '🔴 HIGH - Review access/training'
+        WHEN COUNT(*) > 50 THEN '🟠 ELEVATED - Monitor activity'
+        WHEN COUNT(*) > 20 THEN '🟡 MODERATE - Normal development'
+        ELSE '🟢 LOW - Normal usage'
+    END AS user_status,
+    -- Recommendation
+    CASE 
+        WHEN COUNT(*) > 100 AND COUNT(DISTINCT error_category) = 1 THEN 'Training needed on specific error type'
+        WHEN COUNT(*) > 100 THEN 'Review user permissions and access patterns'
+        WHEN COUNT(DISTINCT error_category) > 5 THEN 'User may need general SQL training'
+        ELSE 'No action needed'
+    END AS recommendation
+FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_ERROR_LOG
+WHERE error_time >= DATEADD('day', -30, CURRENT_DATE())
+GROUP BY user_name
+ORDER BY total_errors DESC;
+```
+
+---
+
+### TILE 41: Error Analysis by Schema
+
+**Type:** Horizontal bar chart  
+**Refresh:** Daily
+
+```sql
+-- Schema-Level Error Distribution
+SELECT 
+    schema_name,
+    COUNT(*) AS error_count,
+    COUNT(DISTINCT error_category) AS error_variety,
+    COUNT(DISTINCT query_type) AS query_type_variety,
+    COUNT(DISTINCT user_name) AS affected_users,
+    ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (), 1) AS pct_of_total_errors,
+    -- Most common error in this schema
+    (SELECT error_category 
+     FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_ERROR_LOG el2
+     WHERE el2.schema_name = el.schema_name
+       AND el2.error_time >= DATEADD('day', -7, CURRENT_DATE())
+     GROUP BY error_category
+     ORDER BY COUNT(*) DESC
+     LIMIT 1) AS most_common_error,
+    -- Schema health indicator
+    CASE 
+        WHEN COUNT(*) > 100 THEN '🔴 CRITICAL - Schema has major issues'
+        WHEN COUNT(*) > 50 THEN '🟠 HIGH - Review schema objects'
+        WHEN COUNT(*) > 20 THEN '🟡 MODERATE - Monitor'
+        ELSE '🟢 HEALTHY'
+    END AS schema_health
+FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_ERROR_LOG el
+WHERE error_time >= DATEADD('day', -7, CURRENT_DATE())
+GROUP BY schema_name
+ORDER BY error_count DESC;
+```
+
+---
+
+### TILE 42: Error-Free Days Tracker
+
+**Type:** Calendar heatmap or table  
+**Refresh:** Daily
+
+```sql
+-- Error-Free Days Quality Metric
+WITH daily_status AS (
+    SELECT 
+        DATE(error_time) AS error_date,
+        COUNT(*) AS error_count,
+        COUNT(DISTINCT error_category) AS error_variety
+    FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_ERROR_LOG
+    WHERE error_time >= DATEADD('day', -30, CURRENT_DATE())
+    GROUP BY error_date
+),
+all_dates AS (
+    SELECT 
+        DATEADD('day', SEQ4(), DATEADD('day', -30, CURRENT_DATE())) AS date
+    FROM TABLE(GENERATOR(ROWCOUNT => 31))
+)
+SELECT 
+    ad.date,
+    DAYNAME(ad.date) AS day_of_week,
+    COALESCE(ds.error_count, 0) AS error_count,
+    COALESCE(ds.error_variety, 0) AS error_types,
+    -- Day classification
+    CASE 
+        WHEN ds.error_count IS NULL OR ds.error_count = 0 THEN '✅ ERROR-FREE'
+        WHEN ds.error_count < 5 THEN '🟢 LOW (<5 errors)'
+        WHEN ds.error_count < 20 THEN '🟡 MODERATE (5-20)'
+        WHEN ds.error_count < 50 THEN '🟠 HIGH (20-50)'
+        ELSE '🔴 CRITICAL (>50)'
+    END AS day_status,
+    -- Weekly quality score
+    AVG(CASE WHEN ds2.error_count IS NULL THEN 100
+             WHEN ds2.error_count = 0 THEN 100
+             WHEN ds2.error_count < 5 THEN 90
+             WHEN ds2.error_count < 20 THEN 70
+             ELSE 40 
+        END) OVER (ORDER BY ad.date ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) AS quality_score_7day
+FROM all_dates ad
+LEFT JOIN daily_status ds ON ad.date = ds.error_date
+LEFT JOIN daily_status ds2 ON ds2.error_date BETWEEN DATEADD('day', -6, ad.date) AND ad.date
+ORDER BY ad.date DESC;
+```
+
+**Metrics:**
+- Error-free days in last 30 days
+- Average daily error count
+- 7-day rolling quality score (0-100)
+
+---
+
+### TILE 43: Error Cost Impact Analysis
+
+**Type:** Table with financial impact  
+**Refresh:** Daily
+
+```sql
+-- Error Cost Impact (Wasted Compute)
+WITH error_details AS (
+    SELECT 
+        DATE(e.error_time) AS error_date,
+        e.warehouse_name,
+        e.query_id,
+        e.error_category,
+        COALESCE(q.total_elapsed_time / 1000 / 3600, 0) AS execution_hours,
+        COALESCE(q.warehouse_size, 'UNKNOWN') AS warehouse_size
+    FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_ERROR_LOG e
+    LEFT JOIN SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY q 
+        ON e.query_id = q.query_id
+    WHERE e.error_time >= DATEADD('day', -30, CURRENT_DATE())
+)
+SELECT 
+    error_date,
+    error_category,
+    COUNT(*) AS error_count,
+    ROUND(SUM(execution_hours), 4) AS total_compute_hours,
+    -- Estimate credits (assuming Medium warehouse = 4 credits/hour as baseline)
+    ROUND(SUM(
+        CASE warehouse_size
+            WHEN 'X-Small' THEN execution_hours * 1
+            WHEN 'Small' THEN execution_hours * 2
+            WHEN 'Medium' THEN execution_hours * 4
+            WHEN 'Large' THEN execution_hours * 8
+            WHEN 'X-Large' THEN execution_hours * 16
+            ELSE execution_hours * 4  -- Default to Medium
+        END
+    ), 4) AS estimated_credits_wasted,
+    -- Cost at $3/credit
+    ROUND(SUM(
+        CASE warehouse_size
+            WHEN 'X-Small' THEN execution_hours * 1
+            WHEN 'Small' THEN execution_hours * 2
+            WHEN 'Medium' THEN execution_hours * 4
+            WHEN 'Large' THEN execution_hours * 8
+            WHEN 'X-Large' THEN execution_hours * 16
+            ELSE execution_hours * 4
+        END
+    ) * 3.0, 2) AS estimated_wasted_cost_usd,
+    -- Impact indicator
+    CASE 
+        WHEN SUM(execution_hours) > 10 THEN '🔴 HIGH IMPACT (>10 hours)'
+        WHEN SUM(execution_hours) > 1 THEN '🟡 MODERATE IMPACT (1-10 hours)'
+        WHEN SUM(execution_hours) > 0.1 THEN '🟢 LOW IMPACT'
+        ELSE '⚪ MINIMAL'
+    END AS cost_impact
+FROM error_details
+GROUP BY error_date, error_category
+HAVING SUM(execution_hours) > 0
+ORDER BY estimated_wasted_cost_usd DESC;
+```
+
+**Business Value:** Track and reduce wasted compute costs from failed queries
+
+---
+
+## 🎯 QUICK ERROR DIAGNOSTIC QUERIES
+
+### Quick Check 1: Current System Health
+
+```sql
+-- Real-Time Error Health Check
+SELECT 
+    -- Today's metrics
+    (SELECT COUNT(*) FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_ERROR_LOG 
+     WHERE DATE(error_time) = CURRENT_DATE()) AS errors_today,
+    
+    (SELECT ROUND(error_rate_pct, 2) FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_ERROR_TREND 
+     WHERE date = CURRENT_DATE()) AS error_rate_today_pct,
+    
+    -- Last hour
+    (SELECT COUNT(*) FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_ERROR_LOG 
+     WHERE error_time >= DATEADD('hour', -1, CURRENT_TIMESTAMP())) AS errors_last_hour,
+    
+    -- Most common error right now
+    (SELECT error_category FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_ERROR_LOG 
+     WHERE DATE(error_time) = CURRENT_DATE()
+     GROUP BY error_category ORDER BY COUNT(*) DESC LIMIT 1) AS top_error_today,
+    
+    -- Overall status
+    CASE 
+        WHEN (SELECT COUNT(*) FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_ERROR_LOG 
+              WHERE error_time >= DATEADD('hour', -1, CURRENT_TIMESTAMP())) > 10 
+        THEN '🔴 CRITICAL - High error rate'
+        WHEN (SELECT ROUND(error_rate_pct, 2) FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_ERROR_TREND 
+              WHERE date = CURRENT_DATE()) > 5 
+        THEN '🟡 WARNING - Elevated errors'
+        ELSE '✅ HEALTHY'
+    END AS system_status;
+```
+
+---
+
+### Quick Check 2: Latest 10 Errors
+
+```sql
+-- Most Recent Errors
+SELECT 
+    error_time,
+    schema_name,
+    error_category,
+    LEFT(error_message, 100) AS error_summary,
+    user_name,
+    DATEDIFF('minute', error_time, CURRENT_TIMESTAMP()) AS minutes_ago
+FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_ERROR_LOG 
+ORDER BY error_time DESC 
+LIMIT 10;
+```
+
+---
+
+### Quick Check 3: Error Count by Hour (Today)
+
+```sql
+-- Today's Hourly Error Distribution
+SELECT 
+    HOUR(error_time) AS hour,
+    COUNT(*) AS error_count,
+    LISTAGG(DISTINCT error_category, ', ') AS error_types
+FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_ERROR_LOG
+WHERE DATE(error_time) = CURRENT_DATE()
+GROUP BY hour
+ORDER BY hour;
+```
+
+---
+
+### Quick Check 4: Error Summary Statistics
+
+```sql
+-- 7-Day Error Summary
+SELECT 
+    COUNT(*) AS total_errors_7d,
+    COUNT(DISTINCT DATE(error_time)) AS days_with_errors,
+    COUNT(DISTINCT error_category) AS unique_error_types,
+    COUNT(DISTINCT user_name) AS affected_users,
+    COUNT(DISTINCT schema_name) AS affected_schemas,
+    ROUND(COUNT(*) * 1.0 / 7, 1) AS avg_errors_per_day,
+    -- Most common error
+    (SELECT error_category FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_ERROR_LOG 
+     WHERE error_time >= DATEADD('day', -7, CURRENT_DATE())
+     GROUP BY error_category ORDER BY COUNT(*) DESC LIMIT 1) AS most_common_error,
+    -- Trend
+    CASE 
+        WHEN COUNT(CASE WHEN error_time >= DATEADD('day', -3, CURRENT_DATE()) THEN 1 END) >
+             COUNT(CASE WHEN error_time BETWEEN DATEADD('day', -7, CURRENT_DATE()) 
+                                           AND DATEADD('day', -4, CURRENT_DATE()) THEN 1 END)
+        THEN '📈 INCREASING - Errors trending up'
+        ELSE '📉 DECREASING or STABLE'
+    END AS trend_indicator
+FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_ERROR_LOG
+WHERE error_time >= DATEADD('day', -7, CURRENT_DATE());
+```
+
+---
+
+## 🔍 SCENARIO-SPECIFIC ERROR QUERIES
+
+### Scenario 1: Post-Deployment Error Spike Detection
+
+```sql
+-- Detect Error Spikes After Deployments
+WITH hourly_errors AS (
+    SELECT 
+        DATE_TRUNC('hour', error_time) AS error_hour,
+        COUNT(*) AS error_count
+    FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_ERROR_LOG
+    WHERE error_time >= DATEADD('day', -3, CURRENT_DATE())
+    GROUP BY error_hour
+),
+baseline AS (
+    SELECT AVG(error_count) AS avg_hourly_errors,
+           STDDEV(error_count) AS stddev_errors
+    FROM hourly_errors
+)
+SELECT 
+    he.error_hour,
+    he.error_count,
+    ROUND(b.avg_hourly_errors, 1) AS baseline_avg,
+    ROUND(b.stddev_errors, 1) AS baseline_stddev,
+    ROUND((he.error_count - b.avg_hourly_errors) / NULLIF(b.stddev_errors, 0), 2) AS std_deviations,
+    -- Spike detection
+    CASE 
+        WHEN he.error_count > b.avg_hourly_errors + (3 * b.stddev_errors) 
+        THEN '🔴 CRITICAL SPIKE (>3σ)'
+        WHEN he.error_count > b.avg_hourly_errors + (2 * b.stddev_errors) 
+        THEN '🟠 SIGNIFICANT SPIKE (>2σ)'
+        WHEN he.error_count > b.avg_hourly_errors + b.stddev_errors 
+        THEN '🟡 ELEVATED (>1σ)'
+        ELSE '🟢 NORMAL'
+    END AS spike_status
+FROM hourly_errors he
+CROSS JOIN baseline b
+WHERE he.error_count > b.avg_hourly_errors
+ORDER BY he.error_hour DESC;
+```
+
+**Use Case:** Run after deploying new code to detect regression issues
+
+---
+
+### Scenario 2: Permission/Access Error Investigation
+
+```sql
+-- Access Denied & Permission Errors Analysis
+SELECT 
+    error_time,
+    user_name,
+    schema_name,
+    error_code,
+    error_message,
+    LEFT(query_text_preview, 300) AS query_preview,
+    -- Extract object from error message
+    REGEXP_SUBSTR(error_message, 'table\\s+''([^'']+)''', 1, 1, 'ie', 1) AS denied_object,
+    REGEXP_SUBSTR(error_message, 'schema\\s+''([^'']+)''', 1, 1, 'ie', 1) AS denied_schema,
+    -- Action needed
+    CASE 
+        WHEN error_message ILIKE '%insufficient privileges%' THEN 'Grant role privileges'
+        WHEN error_message ILIKE '%access denied%' THEN 'Check object ownership'
+        WHEN error_message ILIKE '%does not exist or not authorized%' THEN 'Verify object exists and grant access'
+        ELSE 'Review permissions'
+    END AS action_needed
+FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_ERROR_LOG
+WHERE error_category = 'ACCESS_DENIED'
+  AND error_time >= DATEADD('day', -7, CURRENT_DATE())
+ORDER BY error_time DESC;
+```
+
+**Use Case:** Security audit and access troubleshooting
+
+---
+
+### Scenario 3: Data Quality Issue Errors
+
+```sql
+-- Data Quality Related Errors
+SELECT 
+    failure_time,
+    schema_name,
+    affected_object,
+    error_category,
+    error_message,
+    -- Extract specifics
+    CASE 
+        WHEN error_message ILIKE '%duplicate%' THEN 
+            REGEXP_SUBSTR(error_message, 'key\\s+\\(([^)]+)\\)', 1, 1, 'ie', 1)
+        WHEN error_message ILIKE '%null%not%null%' THEN 
+            REGEXP_SUBSTR(error_message, 'column\\s+''([^'']+)''', 1, 1, 'ie', 1)
+        WHEN error_message ILIKE '%division%zero%' THEN 'Division by zero in calculation'
+        ELSE NULL
+    END AS data_issue_detail,
+    -- Root cause category
+    CASE error_category
+        WHEN 'CONSTRAINT_VIOLATION' THEN '🔴 DATA INTEGRITY - Duplicates/PKs'
+        WHEN 'NULL_CONSTRAINT' THEN '🟠 DATA COMPLETENESS - Missing values'
+        WHEN 'DIVISION_BY_ZERO' THEN '🟡 DATA VALIDITY - Invalid calculations'
+        WHEN 'TYPE_CONVERSION' THEN '🟣 DATA FORMAT - Type mismatches'
+        ELSE '⚪ OTHER'
+    END AS root_cause,
+    query_text_preview
+FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_BUILD_FAILURE_DETAILS
+WHERE error_category IN ('CONSTRAINT_VIOLATION', 'NULL_CONSTRAINT', 
+                         'DIVISION_BY_ZERO', 'TYPE_CONVERSION')
+  AND failure_time >= DATEADD('day', -7, CURRENT_DATE())
+ORDER BY failure_time DESC;
+```
+
+**Use Case:** Identify data quality issues causing pipeline failures
+
+---
+
+### Scenario 4: Performance-Related Timeout Errors
+
+```sql
+-- Timeout & Resource Limit Analysis
+SELECT 
+    DATE(error_time) AS error_date,
+    warehouse_name,
+    schema_name,
+    query_type,
+    COUNT(*) AS timeout_count,
+    AVG(DATEDIFF('second', 
+        (SELECT start_time FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY qh 
+         WHERE qh.query_id = el.query_id), error_time)) AS avg_runtime_seconds,
+    -- Affected tables
+    LISTAGG(DISTINCT 
+        REGEXP_SUBSTR(query_text_preview, 'FROM\\s+([\\w_]+\\.[\\w_]+)', 1, 1, 'ie', 1), 
+        ', ') AS affected_tables,
+    -- Recommendation
+    CASE 
+        WHEN warehouse_name LIKE '%X-Small%' OR warehouse_name LIKE '%SMALL%' 
+        THEN '💡 Consider larger warehouse for complex queries'
+        WHEN COUNT(*) > 10 
+        THEN '💡 Optimize queries or increase timeout settings'
+        ELSE '💡 Review individual query patterns'
+    END AS recommendation
+FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_ERROR_LOG el
+WHERE error_category IN ('TIMEOUT', 'RESOURCE_LIMIT')
+  AND error_time >= DATEADD('day', -7, CURRENT_DATE())
+GROUP BY error_date, warehouse_name, schema_name, query_type
+ORDER BY timeout_count DESC;
+```
+
+**Use Case:** Performance optimization and warehouse sizing
+
+---
+
+### Scenario 5: Syntax & Object Not Found Errors (Development Issues)
+
+```sql
+-- Development Error Patterns
+SELECT 
+    user_name,
+    error_category,
+    COUNT(*) AS error_count,
+    -- Extract common patterns
+    COUNT(CASE WHEN error_message ILIKE '%typo%' OR error_message ILIKE '%misspelled%' 
+               THEN 1 END) AS typo_errors,
+    COUNT(CASE WHEN error_message ILIKE '%does not exist%' 
+               THEN 1 END) AS missing_object_errors,
+    COUNT(CASE WHEN error_message ILIKE '%unexpected%' OR error_message ILIKE '%expected%' 
+               THEN 1 END) AS syntax_errors,
+    -- Most common specific error
+    (SELECT LEFT(error_message, 100)
+     FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_ERROR_LOG el2
+     WHERE el2.user_name = el.user_name
+       AND el2.error_category = el.error_category
+       AND el2.error_time >= DATEADD('day', -7, CURRENT_DATE())
+     GROUP BY LEFT(error_message, 100)
+     ORDER BY COUNT(*) DESC
+     LIMIT 1) AS most_common_error,
+    -- Training recommendation
+    CASE 
+        WHEN COUNT(*) > 50 AND error_category = 'SYNTAX_ERROR' 
+        THEN '📚 SQL syntax training recommended'
+        WHEN COUNT(*) > 50 AND error_category = 'OBJECT_NOT_FOUND' 
+        THEN '📚 Schema structure training recommended'
+        WHEN COUNT(*) > 50 AND error_category = 'INVALID_IDENTIFIER' 
+        THEN '📚 Naming conventions training recommended'
+        ELSE '✅ Normal development learning curve'
+    END AS training_recommendation
+FROM EDW.O2C_ENHANCED_MONITORING.O2C_ENH_ERROR_LOG el
+WHERE error_category IN ('SYNTAX_ERROR', 'OBJECT_NOT_FOUND', 'INVALID_IDENTIFIER')
+  AND error_time >= DATEADD('day', -7, CURRENT_DATE())
+GROUP BY user_name, error_category
+HAVING COUNT(*) > 5
+ORDER BY error_count DESC;
+```
+
+**Use Case:** Developer training and onboarding support
+
+---
+
+## 📊 ERROR DASHBOARD RECOMMENDED LAYOUT
+
+### **Dashboard Tab: "Error Monitoring & Diagnostics"**
+
+**Row 1: Executive Error Summary**
+- Tile 34: Error Log (scrollable table)
+- Quick Check 1: Current System Health (scorecard)
+- Tile 35: Error Trend (dual-axis line chart)
+
+**Row 2: Error Distribution & Analysis**
+- Tile 36: Error Breakdown by Category (pie chart)
+- Tile 38: Top Recurring Patterns (table)
+- Tile 39: Hourly Heatmap (heatmap visualization)
+
+**Row 3: Build Failures & Impact**
+- Tile 37: Build Failure Details (table with recommendations)
+- Tile 43: Error Cost Impact (table with $ values)
+- Tile 42: Error-Free Days (calendar heatmap)
+
+**Row 4: User & Schema Analysis**
+- Tile 40: Error by User (horizontal bar chart)
+- Tile 41: Error by Schema (horizontal bar chart)
+- Quick Check 4: Summary Statistics (scorecard grid)
+
+**Row 5: Scenario-Specific Deep Dives**
+- Scenario 1: Deployment Spike Detection (run on-demand)
+- Scenario 2: Permission Issues (filtered table)
+- Scenario 3: Data Quality Errors (filtered table)
+
+---
+
+## 📈 ERROR METRICS SUMMARY
+
+| Metric | Source | Purpose |
+|--------|--------|---------|
+| **Error Rate %** | `O2C_ENH_ERROR_TREND` | Overall system health |
+| **Error Count** | `O2C_ENH_ERROR_LOG` | Volume tracking |
+| **Error Categories** | `O2C_ENH_ERROR_LOG` | Root cause distribution |
+| **Recurring Patterns** | Aggregated `ERROR_LOG` | Systemic issue identification |
+| **Error-Free Days** | Date analysis | Quality trending |
+| **Cost Impact** | `ERROR_LOG` + `QUERY_HISTORY` | Financial impact |
+| **User Error Rate** | By user aggregation | Training needs |
+| **Schema Error Rate** | By schema aggregation | Code quality by area |
+
+---
+
 ## ✅ You're All Set!
 
-**This single file contains all 33 dashboard queries you need.**
+**This file now contains 43 dashboard tiles + 9 diagnostic queries + 5 scenario-specific analyses.**
+
+### Total Coverage:
+1. ✅ **33 Core Monitoring Tiles** (Tiles 1-33)
+2. ✅ **10 Error Analysis Tiles** (Tiles 34-43)
+3. ✅ **4 Quick Diagnostic Queries** (Real-time health checks)
+4. ✅ **5 Scenario-Specific Queries** (Deep-dive investigations)
 
 ### Next Steps:
-1. ✅ Run `O2C_MONITORING_COMPLETE_SETUP.sql` to create all views
-2. ✅ Use this file to set up your Snowsight dashboard
-3. ✅ Configure refresh schedules based on table above
-4. ✅ Set up email alerts for critical metrics
+1. ✅ Run `O2C_MONITORING_COMPLETE_SETUP.sql` to create all foundational views
+2. ✅ Error monitoring views are already included in setup (Views 12-14)
+3. ✅ Use this file to set up your comprehensive dashboard
+4. ✅ Configure refresh schedules:
+   - Error tiles: Every 5-15 minutes
+   - Trend analysis: Hourly
+   - User/Schema analysis: Daily
+5. ✅ Bookmark Quick Check queries for instant diagnostics
 
-**All your observability requirements are now covered in one place!** 🎉
+**All your observability AND error analysis requirements are now covered in one place!** 🎉
 
