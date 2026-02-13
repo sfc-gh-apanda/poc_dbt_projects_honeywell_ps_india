@@ -17,7 +17,7 @@ import streamlit as st
 # Page Config
 # ─────────────────────────────────────────────
 st.set_page_config(
-    page_title="Hello Snowflake",
+    page_title="Hello and welcome to Snowflake",
     page_icon="❄️",
     layout="centered"
 )
