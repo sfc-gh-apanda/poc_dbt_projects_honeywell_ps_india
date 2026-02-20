@@ -25,7 +25,7 @@ st.set_page_config(
 # ─────────────────────────────────────────────
 # Header
 # ─────────────────────────────────────────────
-st.title("❄️ Hello, Snowflake!")
+st.title("❄️ Hello, Snowflake!, we have changed the base code.")
 st.subheader("Snowflake Native Streamlit App")
 
 st.divider()
