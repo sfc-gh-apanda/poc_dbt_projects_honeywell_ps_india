@@ -1,0 +1,270 @@
+version: 2
+
+models:
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # STAGING LAYER - Views with Enrichment
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # Pattern: VIEW (always current, no materialization)
+  # Audit: Full 7-column audit set
+  # Contract: ENFORCED
+  # Schema Change: append_new_columns (raw layer tolerance)
+  # ═══════════════════════════════════════════════════════════════════════════════
+
+  - name: stg_holdings
+    description: |
+      **Portfolio Holdings enriched with Fund & FX data**
+      
+      Joins FACT_PORTFOLIO_HOLDINGS with DIM_FUND, FACT_NAV_PRICES, and FACT_FX_RATES.
+      Calculates market_value_eur using NAV × quantity × FX rate.
+      
+      **Pattern:** VIEW (always current)
+      **Contract:** ENFORCED
+    access: protected
+    config:
+      tags: ['staging', 'holdings']
+      contract:
+        enforced: true
+    columns:
+      - name: holding_date
+        data_type: date
+        tests: [not_null]
+      - name: account_id
+        data_type: varchar
+        tests: [not_null]
+      - name: fund_id
+        data_type: varchar
+        tests: [not_null]
+      - name: holding_key
+        data_type: varchar
+        tests: [not_null]
+      - name: quantity
+        data_type: number
+      - name: cost_price
+        data_type: number
+      - name: cost_value_local
+        data_type: number
+      - name: market_value_local
+        data_type: number
+      - name: holding_currency
+        data_type: varchar
+      - name: isin
+        data_type: varchar
+      - name: fund_name
+        data_type: varchar
+      - name: fund_type
+        data_type: varchar
+      - name: asset_class
+        data_type: varchar
+      - name: fund_currency
+        data_type: varchar
+      - name: benchmark_id
+        data_type: varchar
+      - name: nav_per_unit
+        data_type: number
+      - name: daily_return_pct
+        data_type: number
+      - name: ytd_return_pct
+        data_type: number
+      - name: calculated_market_value_local
+        data_type: number
+      - name: fx_rate_to_eur
+        data_type: number
+      - name: market_value_eur
+        data_type: number
+      - name: source_system
+        data_type: varchar
+      - name: dbt_run_id
+        data_type: varchar
+        tests: [not_null]
+      - name: dbt_batch_id
+        data_type: varchar
+        tests: [not_null]
+      - name: dbt_loaded_at
+        data_type: timestamp_ntz
+        tests: [not_null]
+      - name: dbt_created_at
+        data_type: timestamp_ntz
+        tests: [not_null]
+      - name: dbt_updated_at
+        data_type: timestamp_ntz
+        tests: [not_null]
+      - name: dbt_source_model
+        data_type: varchar
+        tests: [not_null]
+      - name: dbt_environment
+        data_type: varchar
+        tests: [not_null]
+
+  - name: stg_transactions
+    description: |
+      **Transactions enriched with Fund & Account data**
+      
+      Joins FACT_TRANSACTIONS with DIM_ACCOUNT, DIM_FUND, and FACT_FX_RATES.
+      Calculates flow_direction and net_amount_eur.
+      
+      **Pattern:** VIEW (always current)
+      **Contract:** ENFORCED
+    access: protected
+    config:
+      tags: ['staging', 'transactions']
+      contract:
+        enforced: true
+    columns:
+      - name: transaction_id
+        data_type: varchar
+        tests: [not_null]
+      - name: transaction_key
+        data_type: varchar
+        tests: [not_null]
+      - name: transaction_date
+        data_type: date
+        tests: [not_null]
+      - name: settlement_date
+        data_type: date
+      - name: account_id
+        data_type: varchar
+        tests: [not_null]
+      - name: fund_id
+        data_type: varchar
+        tests: [not_null]
+      - name: client_id
+        data_type: varchar
+      - name: account_name
+        data_type: varchar
+      - name: account_type
+        data_type: varchar
+      - name: mandate_type
+        data_type: varchar
+      - name: account_currency
+        data_type: varchar
+      - name: isin
+        data_type: varchar
+      - name: fund_name
+        data_type: varchar
+      - name: fund_type
+        data_type: varchar
+      - name: asset_class
+        data_type: varchar
+      - name: transaction_type
+        data_type: varchar
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['BUY', 'SELL', 'DIVIDEND', 'FEE', 'TRANSFER_IN', 'TRANSFER_OUT']
+      - name: quantity
+        data_type: number
+      - name: price_per_unit
+        data_type: number
+      - name: gross_amount
+        data_type: number
+      - name: fees
+        data_type: number
+      - name: tax_amount
+        data_type: number
+      - name: net_amount
+        data_type: number
+      - name: transaction_currency
+        data_type: varchar
+      - name: flow_direction
+        data_type: varchar
+      - name: net_flow_amount
+        data_type: number
+      - name: fx_rate_to_eur
+        data_type: number
+      - name: net_amount_eur
+        data_type: number
+      - name: source_system
+        data_type: varchar
+      - name: dbt_run_id
+        data_type: varchar
+        tests: [not_null]
+      - name: dbt_batch_id
+        data_type: varchar
+        tests: [not_null]
+      - name: dbt_loaded_at
+        data_type: timestamp_ntz
+        tests: [not_null]
+      - name: dbt_created_at
+        data_type: timestamp_ntz
+        tests: [not_null]
+      - name: dbt_updated_at
+        data_type: timestamp_ntz
+        tests: [not_null]
+      - name: dbt_source_model
+        data_type: varchar
+        tests: [not_null]
+      - name: dbt_environment
+        data_type: varchar
+        tests: [not_null]
+
+  - name: stg_nav_prices
+    description: |
+      **NAV Prices enriched with Fund & Benchmark metadata**
+      
+      Joins FACT_NAV_PRICES with DIM_FUND and DIM_BENCHMARK.
+      
+      **Pattern:** VIEW (always current)
+      **Contract:** ENFORCED
+    access: protected
+    config:
+      tags: ['staging', 'nav']
+      contract:
+        enforced: true
+    columns:
+      - name: price_date
+        data_type: date
+        tests: [not_null]
+      - name: fund_id
+        data_type: varchar
+        tests: [not_null]
+      - name: nav_key
+        data_type: varchar
+        tests: [not_null]
+      - name: nav_per_unit
+        data_type: number
+        tests: [not_null]
+      - name: daily_return_pct
+        data_type: number
+      - name: ytd_return_pct
+        data_type: number
+      - name: nav_currency
+        data_type: varchar
+      - name: isin
+        data_type: varchar
+      - name: fund_name
+        data_type: varchar
+      - name: fund_type
+        data_type: varchar
+      - name: asset_class
+        data_type: varchar
+      - name: benchmark_id
+        data_type: varchar
+      - name: ter_bps
+        data_type: number
+      - name: benchmark_name
+        data_type: varchar
+      - name: benchmark_ticker
+        data_type: varchar
+      - name: source_system
+        data_type: varchar
+      - name: dbt_run_id
+        data_type: varchar
+        tests: [not_null]
+      - name: dbt_batch_id
+        data_type: varchar
+        tests: [not_null]
+      - name: dbt_loaded_at
+        data_type: timestamp_ntz
+        tests: [not_null]
+      - name: dbt_created_at
+        data_type: timestamp_ntz
+        tests: [not_null]
+      - name: dbt_updated_at
+        data_type: timestamp_ntz
+        tests: [not_null]
+      - name: dbt_source_model
+        data_type: varchar
+        tests: [not_null]
+      - name: dbt_environment
+        data_type: varchar
+        tests: [not_null]

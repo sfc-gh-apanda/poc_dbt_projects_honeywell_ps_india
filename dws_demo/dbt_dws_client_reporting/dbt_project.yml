@@ -1,0 +1,132 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# DBT_DWS_CLIENT_REPORTING - Client Reporting Marts for DWS
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# FEATURES:
+# ✅ Medallion architecture (Source → Staging → Dimensions → Marts)
+# ✅ Audit columns (dbt_run_id, dbt_batch_id, dbt_created_at, dbt_updated_at)
+# ✅ Row hash for change detection
+# ✅ Multiple data load patterns (full refresh, merge, append, delete+insert)
+# ✅ SCD-2 snapshots with soft delete
+# ✅ Data contracts (contract: enforced)
+# ✅ Schema change enforcement per layer
+# ✅ Observability via run/model logging hooks
+# ✅ Tags at model and query level
+# ✅ As-of date reporting pattern
+# ✅ AUM reconciliation tests
+# ═══════════════════════════════════════════════════════════════════════════════
+
+name: 'dbt_dws_client_reporting'
+version: '1.0.0'
+config-version: 2
+
+profile: 'snowflake_dws'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# HOOKS - Automated Processing Tracking
+# ═══════════════════════════════════════════════════════════════════════════════
+
+on-run-start:
+  - "{{ log_run_start() }}"
+
+on-run-end:
+  - "{{ log_run_end() }}"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# VARIABLES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+vars:
+  # Audit configuration
+  enable_audit_logging: true
+  audit_database: 'DWSEDW'
+  audit_schema: 'DWS_AUDIT'
+
+  # As-of date for point-in-time reporting
+  as_of_date: "CURRENT_DATE()"
+
+  # Data reload variables
+  reload_days: 3
+
+  # Telemetry
+  enable_row_count_tracking: true
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MODEL CONFIGURATIONS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+models:
+  dbt_dws_client_reporting:
+    +persist_docs:
+      relation: true
+      columns: true
+
+    +post-hook:
+      - "{{ log_model_execution() }}"
+
+    # ═══════════════════════════════════════════════════════════════
+    # STAGING LAYER (Silver)
+    # ═══════════════════════════════════════════════════════════════
+    staging:
+      +materialized: view
+      +schema: staging
+      +tags: ['dws', 'staging', 'daily']
+      +access: protected
+      +on_schema_change: 'append_new_columns'
+      +docs:
+        node_color: "#4CAF50"
+
+    # ═══════════════════════════════════════════════════════════════
+    # MARTS LAYER
+    # ═══════════════════════════════════════════════════════════════
+    marts:
+
+      # Dimensions - Full Refresh
+      dimensions:
+        +materialized: table
+        +schema: dimensions
+        +tags: ['dws', 'dimension', 'daily', 'full_refresh']
+        +access: public
+        +on_schema_change: 'fail'
+        +docs:
+          node_color: "#2196F3"
+
+      # Core Marts - Mixed patterns
+      core:
+        +schema: core
+        +tags: ['dws', 'mart', 'core', 'daily']
+        +access: public
+        +on_schema_change: 'fail'
+        +docs:
+          node_color: "#9C27B0"
+
+      # Events - Append Only
+      events:
+        +materialized: incremental
+        +schema: events
+        +tags: ['dws', 'events', 'append_only', 'daily']
+        +access: public
+        +on_schema_change: 'fail'
+        +docs:
+          node_color: "#FF9800"
+
+      # Aggregates - Full Refresh
+      aggregates:
+        +materialized: table
+        +schema: aggregates
+        +tags: ['dws', 'aggregate', 'daily']
+        +access: public
+        +on_schema_change: 'fail'
+        +docs:
+          node_color: "#E91E63"

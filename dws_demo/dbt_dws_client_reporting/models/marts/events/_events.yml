@@ -1,0 +1,75 @@
+version: 2
+
+models:
+  - name: fact_client_events
+    description: |
+      **Client Transaction Event Log (Append Only)**
+      
+      **Data Load Pattern:** APPEND ONLY (incremental_strategy='append')
+      
+      Immutable audit trail. New events appended, old events never modified.
+    access: public
+    config:
+      tags: ['events', 'append_only']
+      contract:
+        enforced: true
+    columns:
+      - name: event_id
+        data_type: varchar
+        tests: [not_null]
+      - name: event_type
+        data_type: varchar
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['BUY', 'SELL', 'DIVIDEND', 'FEE', 'TRANSFER_IN', 'TRANSFER_OUT']
+      - name: event_date
+        data_type: date
+        tests: [not_null]
+      - name: account_id
+        data_type: varchar
+        tests: [not_null]
+      - name: client_id
+        data_type: varchar
+      - name: fund_id
+        data_type: varchar
+        tests: [not_null]
+      - name: entity_id
+        data_type: varchar
+      - name: entity_type
+        data_type: varchar
+      - name: event_amount_eur
+        data_type: number
+      - name: event_currency
+        data_type: varchar
+      - name: fund_name
+        data_type: varchar
+      - name: account_name
+        data_type: varchar
+      - name: flow_direction
+        data_type: varchar
+      - name: event_description
+        data_type: varchar
+      - name: source_system
+        data_type: varchar
+      - name: dbt_run_id
+        data_type: varchar
+        tests: [not_null]
+      - name: dbt_batch_id
+        data_type: varchar
+        tests: [not_null]
+      - name: dbt_loaded_at
+        data_type: timestamp_ntz
+        tests: [not_null]
+      - name: dbt_created_at
+        data_type: timestamp_ntz
+        tests: [not_null]
+      - name: dbt_updated_at
+        data_type: timestamp_ntz
+        tests: [not_null]
+      - name: dbt_source_model
+        data_type: varchar
+        tests: [not_null]
+      - name: dbt_environment
+        data_type: varchar
+        tests: [not_null]

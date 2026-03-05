@@ -1,0 +1,114 @@
+version: 2
+
+sources:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DWS TRANSACTIONAL DATA
+  # ═══════════════════════════════════════════════════════════════════════════
+  - name: dws_tran
+    description: "DWS transactional data - Holdings, Transactions, NAV Prices"
+    database: DWSEDW
+    schema: DWS_TRAN
+
+    tables:
+      - name: FACT_PORTFOLIO_HOLDINGS
+        description: "Daily portfolio positions (account × fund × date)"
+        columns:
+          - name: HOLDING_DATE
+            description: "Position date"
+          - name: ACCOUNT_ID
+            description: "Account identifier"
+          - name: FUND_ID
+            description: "Fund/product identifier"
+          - name: QUANTITY
+            description: "Units/shares held"
+          - name: MARKET_VALUE_LOCAL
+            description: "Market value in fund currency"
+
+      - name: FACT_TRANSACTIONS
+        description: "Buy/Sell/Dividend/Fee transactions"
+        columns:
+          - name: TRANSACTION_ID
+            description: "Transaction unique identifier"
+          - name: TRANSACTION_DATE
+            description: "Trade date"
+          - name: TRANSACTION_TYPE
+            description: "BUY, SELL, DIVIDEND, FEE, TRANSFER_IN, TRANSFER_OUT"
+
+      - name: FACT_NAV_PRICES
+        description: "Daily NAV per fund from Bloomberg"
+        columns:
+          - name: PRICE_DATE
+            description: "NAV valuation date"
+          - name: FUND_ID
+            description: "Fund identifier"
+          - name: NAV_PER_UNIT
+            description: "Net Asset Value per unit"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DWS MASTER DATA
+  # ═══════════════════════════════════════════════════════════════════════════
+  - name: dws_master
+    description: "DWS master data - Clients, Accounts, Funds"
+    database: DWSEDW
+    schema: DWS_MASTER
+
+    tables:
+      - name: DIM_CLIENT
+        description: "Client master data (institutional, retail, private bank)"
+        freshness:
+          warn_after: {count: 48, period: hour}
+        loaded_at_field: update_ts
+        columns:
+          - name: CLIENT_ID
+            description: "Client unique identifier"
+          - name: CLIENT_NAME
+            description: "Client legal name"
+          - name: LOAD_TS
+            description: "Record load timestamp"
+
+      - name: DIM_ACCOUNT
+        description: "Account/mandate master data"
+        columns:
+          - name: ACCOUNT_ID
+            description: "Account unique identifier"
+          - name: CLIENT_ID
+            description: "Owning client ID"
+          - name: MANDATE_TYPE
+            description: "EQUITY, FIXED_INCOME, MULTI_ASSET, ALTERNATIVES"
+
+      - name: DIM_FUND
+        description: "Fund/product master data with ISIN"
+        columns:
+          - name: FUND_ID
+            description: "Fund unique identifier"
+          - name: ISIN
+            description: "International Securities Identification Number"
+          - name: FUND_NAME
+            description: "Fund name"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DWS REFERENCE DATA
+  # ═══════════════════════════════════════════════════════════════════════════
+  - name: dws_ref
+    description: "DWS reference data - Benchmarks, FX Rates"
+    database: DWSEDW
+    schema: DWS_REF
+
+    tables:
+      - name: DIM_BENCHMARK
+        description: "Benchmark index reference data"
+        columns:
+          - name: BENCHMARK_ID
+            description: "Benchmark identifier"
+          - name: BENCHMARK_NAME
+            description: "Benchmark name"
+
+      - name: FACT_FX_RATES
+        description: "Daily FX rates (to EUR base)"
+        columns:
+          - name: RATE_DATE
+            description: "FX rate date"
+          - name: FROM_CURRENCY
+            description: "Source currency"
+          - name: EXCHANGE_RATE
+            description: "Exchange rate to EUR"

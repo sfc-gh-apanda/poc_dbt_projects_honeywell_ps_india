@@ -1,0 +1,276 @@
+version: 2
+
+models:
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # CORE MART LAYER
+  # ═══════════════════════════════════════════════════════════════════════════════
+
+  - name: dm_portfolio_holdings_asof
+    description: |
+      **Portfolio Holdings As-Of Date Report**
+      
+      **Data Load Pattern:** TABLE (full refresh) with `var('as_of_date')` filter
+      
+      Shows all positions valued as of a specific date.
+      Includes market value, cost basis, unrealized P&L in EUR.
+      
+      **Usage:**
+      ```bash
+      dbt run --select dm_portfolio_holdings_asof
+      dbt run --select dm_portfolio_holdings_asof --vars '{"as_of_date": "''2024-01-31''"}'
+      ```
+    access: public
+    config:
+      tags: ['mart', 'core', 'as_of_reporting', 'critical', 'reconciliation']
+      contract:
+        enforced: true
+    columns:
+      - name: as_of_date
+        data_type: date
+        tests: [not_null]
+      - name: account_id
+        data_type: varchar
+        tests: [not_null]
+      - name: client_id
+        data_type: varchar
+      - name: client_name
+        data_type: varchar
+      - name: client_type
+        data_type: varchar
+      - name: client_segment
+        data_type: varchar
+      - name: account_name
+        data_type: varchar
+      - name: account_type
+        data_type: varchar
+      - name: mandate_type
+        data_type: varchar
+      - name: account_currency
+        data_type: varchar
+      - name: fund_id
+        data_type: varchar
+        tests: [not_null]
+      - name: isin
+        data_type: varchar
+      - name: fund_name
+        data_type: varchar
+      - name: fund_type
+        data_type: varchar
+      - name: asset_class
+        data_type: varchar
+      - name: quantity
+        data_type: number
+      - name: nav_per_unit
+        data_type: number
+      - name: holding_currency
+        data_type: varchar
+      - name: cost_value_local
+        data_type: number
+      - name: market_value_local
+        data_type: number
+      - name: calculated_market_value_local
+        data_type: number
+      - name: fx_rate_to_eur
+        data_type: number
+      - name: market_value_eur
+        data_type: number
+      - name: cost_value_eur
+        data_type: number
+      - name: unrealized_pnl_eur
+        data_type: number
+      - name: unrealized_pnl_pct
+        data_type: number
+      - name: daily_return_pct
+        data_type: number
+      - name: ytd_return_pct
+        data_type: number
+      - name: dbt_run_id
+        data_type: varchar
+        tests: [not_null]
+      - name: dbt_batch_id
+        data_type: varchar
+        tests: [not_null]
+      - name: dbt_loaded_at
+        data_type: timestamp_ntz
+        tests: [not_null]
+      - name: dbt_created_at
+        data_type: timestamp_ntz
+        tests: [not_null]
+      - name: dbt_updated_at
+        data_type: timestamp_ntz
+        tests: [not_null]
+      - name: dbt_source_model
+        data_type: varchar
+        tests: [not_null]
+      - name: dbt_environment
+        data_type: varchar
+        tests: [not_null]
+
+  - name: dm_aum_summary
+    description: |
+      **AUM Summary (Incremental Merge)**
+      
+      **Data Load Pattern:** MERGE / UPSERT (incremental_strategy='merge')
+      
+      Daily AUM by account × fund. New dates INSERT, existing dates UPDATE.
+      dbt_created_at is PRESERVED for existing records.
+    access: public
+    config:
+      tags: ['mart', 'core', 'merge', 'critical', 'reconciliation']
+      contract:
+        enforced: true
+    columns:
+      - name: aum_key
+        data_type: varchar
+        tests: [unique, not_null]
+      - name: holding_date
+        data_type: date
+        tests: [not_null]
+      - name: account_id
+        data_type: varchar
+        tests: [not_null]
+      - name: client_id
+        data_type: varchar
+      - name: client_name
+        data_type: varchar
+      - name: client_type
+        data_type: varchar
+      - name: account_name
+        data_type: varchar
+      - name: mandate_type
+        data_type: varchar
+      - name: fund_id
+        data_type: varchar
+        tests: [not_null]
+      - name: fund_name
+        data_type: varchar
+      - name: fund_type
+        data_type: varchar
+      - name: asset_class
+        data_type: varchar
+      - name: holding_currency
+        data_type: varchar
+      - name: total_market_value_local
+        data_type: number
+      - name: total_market_value_eur
+        data_type: number
+      - name: total_cost_value_eur
+        data_type: number
+      - name: total_unrealized_pnl_eur
+        data_type: number
+      - name: num_positions
+        data_type: number
+      - name: avg_nav_per_unit
+        data_type: number
+      - name: dbt_row_hash
+        data_type: varchar
+        tests: [not_null]
+      - name: dbt_run_id
+        data_type: varchar
+        tests: [not_null]
+      - name: dbt_batch_id
+        data_type: varchar
+        tests: [not_null]
+      - name: dbt_loaded_at
+        data_type: timestamp_ntz
+        tests: [not_null]
+      - name: dbt_created_at
+        data_type: timestamp_ntz
+        tests: [not_null]
+      - name: dbt_updated_at
+        data_type: timestamp_ntz
+        tests: [not_null]
+      - name: dbt_source_model
+        data_type: varchar
+        tests: [not_null]
+      - name: dbt_environment
+        data_type: varchar
+        tests: [not_null]
+
+  - name: dm_client_performance
+    description: |
+      **Client Performance Summary**
+      
+      **Data Load Pattern:** TABLE (full refresh)
+      
+      Account-level performance with returns, flows, dividends, and fees.
+    access: public
+    config:
+      tags: ['mart', 'core', 'full_refresh', 'critical']
+
+  - name: dm_cashflow_summary
+    description: |
+      **Daily Cashflow Summary (Delete + Insert)**
+      
+      **Data Load Pattern:** DELETE + INSERT (incremental_strategy='delete+insert')
+      
+      Reloads last N days to catch late-arriving transactions.
+      
+      **Usage:**
+      ```bash
+      dbt run --select dm_cashflow_summary --vars '{"reload_days": 7}'
+      ```
+    access: public
+    config:
+      tags: ['mart', 'core', 'delete_insert']
+      contract:
+        enforced: true
+    columns:
+      - name: transaction_date
+        data_type: date
+        tests: [not_null]
+      - name: account_id
+        data_type: varchar
+        tests: [not_null]
+      - name: fund_id
+        data_type: varchar
+        tests: [not_null]
+      - name: client_id
+        data_type: varchar
+      - name: client_key
+        data_type: varchar
+      - name: account_name
+        data_type: varchar
+      - name: mandate_type
+        data_type: varchar
+      - name: fund_name
+        data_type: varchar
+      - name: fund_type
+        data_type: varchar
+      - name: gross_inflows_eur
+        data_type: number
+      - name: inflow_count
+        data_type: number
+      - name: gross_outflows_eur
+        data_type: number
+      - name: outflow_count
+        data_type: number
+      - name: net_flows_eur
+        data_type: number
+      - name: dividends_eur
+        data_type: number
+      - name: fees_eur
+        data_type: number
+      - name: total_transactions
+        data_type: number
+      - name: dbt_run_id
+        data_type: varchar
+        tests: [not_null]
+      - name: dbt_batch_id
+        data_type: varchar
+        tests: [not_null]
+      - name: dbt_loaded_at
+        data_type: timestamp_ntz
+        tests: [not_null]
+      - name: dbt_created_at
+        data_type: timestamp_ntz
+        tests: [not_null]
+      - name: dbt_updated_at
+        data_type: timestamp_ntz
+        tests: [not_null]
+      - name: dbt_source_model
+        data_type: varchar
+        tests: [not_null]
+      - name: dbt_environment
+        data_type: varchar
+        tests: [not_null]

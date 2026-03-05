@@ -1,0 +1,148 @@
+version: 2
+
+models:
+  - name: agg_aum_time_series
+    description: |
+      **AUM Time Series Aggregate**
+      
+      Daily AUM rollup by client × mandate × asset class.
+      Includes day-over-day change calculations.
+      Dashboard-optimized for time-series charts.
+    access: public
+    config:
+      tags: ['aggregate', 'daily', 'weekly']
+      contract:
+        enforced: true
+    columns:
+      - name: holding_date
+        data_type: date
+        tests: [not_null]
+      - name: month_start
+        data_type: date
+      - name: year_month
+        data_type: varchar
+      - name: day_of_week
+        data_type: number
+      - name: is_month_end
+        data_type: boolean
+      - name: client_id
+        data_type: varchar
+        tests: [not_null]
+      - name: client_name
+        data_type: varchar
+      - name: client_type
+        data_type: varchar
+      - name: mandate_type
+        data_type: varchar
+      - name: asset_class
+        data_type: varchar
+      - name: daily_aum_eur
+        data_type: number
+      - name: daily_cost_eur
+        data_type: number
+      - name: daily_pnl_eur
+        data_type: number
+      - name: daily_positions
+        data_type: number
+      - name: aum_change_eur
+        data_type: number
+      - name: aum_change_pct
+        data_type: number
+      - name: dbt_run_id
+        data_type: varchar
+        tests: [not_null]
+      - name: dbt_batch_id
+        data_type: varchar
+        tests: [not_null]
+      - name: dbt_loaded_at
+        data_type: timestamp_ntz
+        tests: [not_null]
+      - name: dbt_created_at
+        data_type: timestamp_ntz
+        tests: [not_null]
+      - name: dbt_updated_at
+        data_type: timestamp_ntz
+        tests: [not_null]
+      - name: dbt_source_model
+        data_type: varchar
+        tests: [not_null]
+      - name: dbt_environment
+        data_type: varchar
+        tests: [not_null]
+
+  - name: agg_client_overview
+    description: |
+      **Client Overview KPI Summary**
+      
+      Executive-level one-row-per-client dashboard.
+      Includes AUM, flows, performance, and client tiering.
+    access: public
+    config:
+      tags: ['aggregate', 'daily', 'critical']
+      contract:
+        enforced: true
+    columns:
+      - name: client_id
+        data_type: varchar
+        tests: [unique, not_null]
+      - name: client_name
+        data_type: varchar
+        tests: [not_null]
+      - name: client_type
+        data_type: varchar
+      - name: current_aum_eur
+        data_type: number
+      - name: current_cost_eur
+        data_type: number
+      - name: current_pnl_eur
+        data_type: number
+      - name: unrealized_return_pct
+        data_type: number
+      - name: num_active_accounts
+        data_type: number
+      - name: num_fund_positions
+        data_type: number
+      - name: num_mandate_types
+        data_type: number
+      - name: num_asset_classes
+        data_type: number
+      - name: total_inflows_eur
+        data_type: number
+      - name: total_outflows_eur
+        data_type: number
+      - name: total_net_flows_eur
+        data_type: number
+      - name: total_dividends_eur
+        data_type: number
+      - name: total_fees_eur
+        data_type: number
+      - name: total_transactions
+        data_type: number
+      - name: total_trades
+        data_type: number
+      - name: client_tier
+        data_type: varchar
+        tests:
+          - accepted_values:
+              values: ['TIER_1', 'TIER_2', 'TIER_3', 'TIER_4']
+      - name: dbt_run_id
+        data_type: varchar
+        tests: [not_null]
+      - name: dbt_batch_id
+        data_type: varchar
+        tests: [not_null]
+      - name: dbt_loaded_at
+        data_type: timestamp_ntz
+        tests: [not_null]
+      - name: dbt_created_at
+        data_type: timestamp_ntz
+        tests: [not_null]
+      - name: dbt_updated_at
+        data_type: timestamp_ntz
+        tests: [not_null]
+      - name: dbt_source_model
+        data_type: varchar
+        tests: [not_null]
+      - name: dbt_environment
+        data_type: varchar
+        tests: [not_null]

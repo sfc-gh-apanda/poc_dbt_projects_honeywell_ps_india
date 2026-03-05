@@ -1,0 +1,23 @@
+version: 2
+
+snapshots:
+  - name: snap_client
+    description: |
+      **Client SCD-2 Snapshot**
+      
+      Captures historical changes to client master data.
+      Uses check strategy on key business attributes.
+      Soft-deletes records removed from source.
+      
+      **Run:** `dbt snapshot --select snap_client`
+    config:
+      tags: ['scd2', 'daily', 'critical']
+    columns:
+      - name: client_id
+        description: "Client unique identifier"
+        tests:
+          - not_null
+      - name: dbt_valid_from
+        description: "SCD-2: When this version became effective"
+      - name: dbt_valid_to
+        description: "SCD-2: When this version ended (NULL = current)"

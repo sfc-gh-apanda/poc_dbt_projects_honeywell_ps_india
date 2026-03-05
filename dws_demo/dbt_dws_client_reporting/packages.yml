@@ -1,0 +1,10 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# PACKAGES.YML - dbt Package Dependencies
+# ═══════════════════════════════════════════════════════════════════════════════
+# Only packages compatible with Snowflake Native dbt Projects are included.
+# dbt_expectations is NOT included (incompatible with Snowflake Native dbt).
+# ═══════════════════════════════════════════════════════════════════════════════
+
+packages:
+  - package: dbt-labs/dbt_utils
+    version: [">=1.0.0", "<2.0.0"]
