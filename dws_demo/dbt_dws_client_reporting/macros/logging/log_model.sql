@@ -4,7 +4,7 @@ MODEL LOGGING MACRO
 ═══════════════════════════════════════════════════════════════════════════════
 
 Called by: post-hook in dbt_project.yml
-Table:     DWSEDW.DWS_AUDIT.DBT_MODEL_LOG
+Table:     DWS_EDW.DWS_AUDIT.DBT_MODEL_LOG
 
 ═══════════════════════════════════════════════════════════════════════════════
 #}
@@ -14,7 +14,7 @@ Table:     DWSEDW.DWS_AUDIT.DBT_MODEL_LOG
     {% if var('enable_audit_logging', true) and execute %}
         {% set log_id = invocation_id ~ '_' ~ this.name %}
         {% set batch_id = modules.datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S') ~ '_' ~ this.name %}
-        {% set audit_db = var('audit_database', 'DWSEDW') %}
+        {% set audit_db = var('audit_database', 'DWS_EDW') %}
         {% set audit_sch = var('audit_schema', 'DWS_AUDIT') %}
 
         {% set sql %}
@@ -52,7 +52,7 @@ Table:     DWSEDW.DWS_AUDIT.DBT_MODEL_LOG
     {% if var('enable_audit_logging', true) and execute %}
         {% set log_id = invocation_id ~ '_' ~ this.name %}
         {% set batch_id = modules.datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S') ~ '_' ~ this.name %}
-        {% set audit_db = var('audit_database', 'DWSEDW') %}
+        {% set audit_db = var('audit_database', 'DWS_EDW') %}
         {% set audit_sch = var('audit_schema', 'DWS_AUDIT') %}
 
         {% set sql %}

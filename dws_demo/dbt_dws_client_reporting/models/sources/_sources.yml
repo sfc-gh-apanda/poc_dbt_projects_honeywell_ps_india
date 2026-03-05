@@ -6,7 +6,7 @@ sources:
   # ═══════════════════════════════════════════════════════════════════════════
   - name: dws_tran
     description: "DWS transactional data - Holdings, Transactions, NAV Prices"
-    database: DWSEDW
+    database: DWS_EDW
     schema: DWS_TRAN
 
     tables:
@@ -49,7 +49,7 @@ sources:
   # ═══════════════════════════════════════════════════════════════════════════
   - name: dws_master
     description: "DWS master data - Clients, Accounts, Funds"
-    database: DWSEDW
+    database: DWS_EDW
     schema: DWS_MASTER
 
     tables:
@@ -91,7 +91,7 @@ sources:
   # ═══════════════════════════════════════════════════════════════════════════
   - name: dws_ref
     description: "DWS reference data - Benchmarks, FX Rates"
-    database: DWSEDW
+    database: DWS_EDW
     schema: DWS_REF
 
     tables:

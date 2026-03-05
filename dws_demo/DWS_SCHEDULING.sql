@@ -13,13 +13,13 @@
 -- ═══════════════════════════════════════════════════════════════════════════════
 
 USE ROLE SYSADMIN;
-USE DATABASE DWSEDW;
+USE DATABASE DWS_EDW;
 
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- TASK 1: Daily dbt build (snapshots + models + tests)
 -- ═══════════════════════════════════════════════════════════════════════════════
 
-CREATE OR REPLACE TASK DWSEDW.DWS_AUDIT.DWS_DAILY_DBT_BUILD
+CREATE OR REPLACE TASK DWS_EDW.DWS_AUDIT.DWS_DAILY_DBT_BUILD
     WAREHOUSE = DWS_WH_M
     SCHEDULE = 'USING CRON 0 6 * * * Europe/Berlin'
     ALLOW_OVERLAPPING_EXECUTION = FALSE
@@ -39,7 +39,7 @@ AS
 -- TASK 2: Weekly full refresh (runs Sunday night)
 -- ═══════════════════════════════════════════════════════════════════════════════
 
-CREATE OR REPLACE TASK DWSEDW.DWS_AUDIT.DWS_WEEKLY_FULL_REFRESH
+CREATE OR REPLACE TASK DWS_EDW.DWS_AUDIT.DWS_WEEKLY_FULL_REFRESH
     WAREHOUSE = DWS_WH_M
     SCHEDULE = 'USING CRON 0 2 * * 0 Europe/Berlin'     -- Sunday 2 AM
     ALLOW_OVERLAPPING_EXECUTION = FALSE
@@ -54,9 +54,9 @@ AS
 -- TASK 3: Critical reconciliation check (runs after daily build)
 -- ═══════════════════════════════════════════════════════════════════════════════
 
-CREATE OR REPLACE TASK DWSEDW.DWS_AUDIT.DWS_RECONCILIATION_CHECK
+CREATE OR REPLACE TASK DWS_EDW.DWS_AUDIT.DWS_RECONCILIATION_CHECK
     WAREHOUSE = DWS_WH_S
-    AFTER DWSEDW.DWS_AUDIT.DWS_DAILY_DBT_BUILD
+    AFTER DWS_EDW.DWS_AUDIT.DWS_DAILY_DBT_BUILD
     COMMENT = 'Run reconciliation tests after daily build'
 AS
     EXECUTE DBT PROJECT dbt_dws_client_reporting
@@ -67,10 +67,10 @@ AS
 -- ERROR HANDLING
 -- ═══════════════════════════════════════════════════════════════════════════════
 
-ALTER TASK DWSEDW.DWS_AUDIT.DWS_DAILY_DBT_BUILD SET
+ALTER TASK DWS_EDW.DWS_AUDIT.DWS_DAILY_DBT_BUILD SET
     SUSPEND_TASK_AFTER_NUM_FAILURES = 3;
 
-ALTER TASK DWSEDW.DWS_AUDIT.DWS_WEEKLY_FULL_REFRESH SET
+ALTER TASK DWS_EDW.DWS_AUDIT.DWS_WEEKLY_FULL_REFRESH SET
     SUSPEND_TASK_AFTER_NUM_FAILURES = 3;
 
 
@@ -78,9 +78,9 @@ ALTER TASK DWSEDW.DWS_AUDIT.DWS_WEEKLY_FULL_REFRESH SET
 -- ENABLE TASKS (uncomment when ready for production)
 -- ═══════════════════════════════════════════════════════════════════════════════
 
--- ALTER TASK DWSEDW.DWS_AUDIT.DWS_RECONCILIATION_CHECK RESUME;
--- ALTER TASK DWSEDW.DWS_AUDIT.DWS_DAILY_DBT_BUILD RESUME;
--- ALTER TASK DWSEDW.DWS_AUDIT.DWS_WEEKLY_FULL_REFRESH RESUME;
+-- ALTER TASK DWS_EDW.DWS_AUDIT.DWS_RECONCILIATION_CHECK RESUME;
+-- ALTER TASK DWS_EDW.DWS_AUDIT.DWS_DAILY_DBT_BUILD RESUME;
+-- ALTER TASK DWS_EDW.DWS_AUDIT.DWS_WEEKLY_FULL_REFRESH RESUME;
 
 
 -- ═══════════════════════════════════════════════════════════════════════════════
@@ -91,4 +91,4 @@ ALTER TASK DWSEDW.DWS_AUDIT.DWS_WEEKLY_FULL_REFRESH SET
 -- SELECT * FROM TABLE(INFORMATION_SCHEMA.TASK_HISTORY()) ORDER BY SCHEDULED_TIME DESC LIMIT 20;
 
 -- View task status
--- SHOW TASKS IN SCHEMA DWSEDW.DWS_AUDIT;
+-- SHOW TASKS IN SCHEMA DWS_EDW.DWS_AUDIT;

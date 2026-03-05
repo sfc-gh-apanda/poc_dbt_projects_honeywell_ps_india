@@ -50,7 +50,7 @@ on-run-end:
 vars:
   # Audit configuration
   enable_audit_logging: true
-  audit_database: 'DWSEDW'
+  audit_database: 'DWS_EDW'
   audit_schema: 'DWS_AUDIT'
 
   # As-of date for point-in-time reporting

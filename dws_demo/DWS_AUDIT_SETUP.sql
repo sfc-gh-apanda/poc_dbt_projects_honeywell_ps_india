@@ -4,22 +4,22 @@
 --
 -- Purpose: Create audit/monitoring tables for dbt run tracking
 -- Tables:  DBT_RUN_LOG, DBT_MODEL_LOG
--- Schema:  DWSEDW.DWS_AUDIT
+-- Schema:  DWS_EDW.DWS_AUDIT
 --
 -- Run this ONCE before first dbt build.
 --
 -- ═══════════════════════════════════════════════════════════════════════════════
 
 USE ROLE SYSADMIN;
-USE DATABASE DWSEDW;
+USE DATABASE DWS_EDW;
 
-CREATE SCHEMA IF NOT EXISTS DWSEDW.DWS_AUDIT;
+CREATE SCHEMA IF NOT EXISTS DWS_EDW.DWS_AUDIT;
 
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- TABLE 1: DBT_RUN_LOG - Tracks each dbt run (invocation)
 -- ═══════════════════════════════════════════════════════════════════════════════
 
-CREATE TABLE IF NOT EXISTS DWSEDW.DWS_AUDIT.DBT_RUN_LOG (
+CREATE TABLE IF NOT EXISTS DWS_EDW.DWS_AUDIT.DBT_RUN_LOG (
     run_id              VARCHAR(100)    NOT NULL,
     project_name        VARCHAR(100),
     project_version     VARCHAR(20),
@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS DWSEDW.DWS_AUDIT.DBT_RUN_LOG (
 -- TABLE 2: DBT_MODEL_LOG - Tracks each model execution
 -- ═══════════════════════════════════════════════════════════════════════════════
 
-CREATE TABLE IF NOT EXISTS DWSEDW.DWS_AUDIT.DBT_MODEL_LOG (
+CREATE TABLE IF NOT EXISTS DWS_EDW.DWS_AUDIT.DBT_MODEL_LOG (
     log_id              VARCHAR(200)    NOT NULL,
     run_id              VARCHAR(100)    NOT NULL,
     project_name        VARCHAR(100),
@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS DWSEDW.DWS_AUDIT.DBT_MODEL_LOG (
 -- MONITORING VIEWS
 -- ═══════════════════════════════════════════════════════════════════════════════
 
-CREATE OR REPLACE VIEW DWSEDW.DWS_AUDIT.V_RUN_HISTORY AS
+CREATE OR REPLACE VIEW DWS_EDW.DWS_AUDIT.V_RUN_HISTORY AS
 SELECT
     run_id,
     project_name,
@@ -83,10 +83,10 @@ SELECT
     ROUND(models_success * 100.0 / NULLIF(models_run, 0), 1) AS success_rate_pct,
     warehouse_name,
     user_name
-FROM DWSEDW.DWS_AUDIT.DBT_RUN_LOG
+FROM DWS_EDW.DWS_AUDIT.DBT_RUN_LOG
 ORDER BY run_started_at DESC;
 
-CREATE OR REPLACE VIEW DWSEDW.DWS_AUDIT.V_MODEL_PERFORMANCE AS
+CREATE OR REPLACE VIEW DWS_EDW.DWS_AUDIT.V_MODEL_PERFORMANCE AS
 SELECT
     model_name,
     materialization,
@@ -95,11 +95,11 @@ SELECT
     SUM(CASE WHEN status IN ('FAIL','ERROR') THEN 1 ELSE 0 END) AS failed_runs,
     AVG(rows_affected) AS avg_rows_affected,
     MAX(ended_at) AS last_run_at
-FROM DWSEDW.DWS_AUDIT.DBT_MODEL_LOG
+FROM DWS_EDW.DWS_AUDIT.DBT_MODEL_LOG
 GROUP BY model_name, materialization
 ORDER BY model_name;
 
-CREATE OR REPLACE VIEW DWSEDW.DWS_AUDIT.V_RECENT_FAILURES AS
+CREATE OR REPLACE VIEW DWS_EDW.DWS_AUDIT.V_RECENT_FAILURES AS
 SELECT
     m.run_id,
     m.model_name,
@@ -108,8 +108,8 @@ SELECT
     m.error_message,
     m.started_at,
     r.environment
-FROM DWSEDW.DWS_AUDIT.DBT_MODEL_LOG m
-JOIN DWSEDW.DWS_AUDIT.DBT_RUN_LOG r ON m.run_id = r.run_id
+FROM DWS_EDW.DWS_AUDIT.DBT_MODEL_LOG m
+JOIN DWS_EDW.DWS_AUDIT.DBT_RUN_LOG r ON m.run_id = r.run_id
 WHERE m.status IN ('FAIL', 'ERROR')
 ORDER BY m.started_at DESC
 LIMIT 50;
