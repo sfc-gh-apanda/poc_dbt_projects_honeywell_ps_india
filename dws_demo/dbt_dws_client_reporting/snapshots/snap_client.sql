@@ -18,7 +18,7 @@ Execution:
 
 {{
     config(
-        target_database='DWS_EDW',
+        target_database=target.database,
         target_schema='DWS_SNAPSHOTS',
         unique_key='client_id',
         strategy='check',

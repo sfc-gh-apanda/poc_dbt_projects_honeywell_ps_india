@@ -50,7 +50,8 @@ on-run-end:
 vars:
   # Audit configuration
   enable_audit_logging: true
-  audit_database: 'DWS_EDW'
+  # audit_database defaults to target.database (environment-aware)
+  # override with: dbt build --vars '{audit_database: DWS_EDW}'
   audit_schema: 'DWS_AUDIT'
 
   # As-of date for point-in-time reporting
