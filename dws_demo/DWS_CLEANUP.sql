@@ -3,7 +3,7 @@
 -- ═══════════════════════════════════════════════════════════════════════════════
 --
 -- Purpose: Drop everything created by the DWS demo project for a fresh start
--- Order:   Tasks → Monitoring → Audit → dbt schemas → Source schemas → Databases → Roles
+-- Order:   Tasks → Integration → Monitoring → Audit → dbt schemas → Source schemas → Databases → Roles
 --
 -- WARNING: This is DESTRUCTIVE. All data will be lost.
 --          Review before running. Uncomment the sections you want to execute.
@@ -33,21 +33,31 @@ DROP TASK IF EXISTS DWS_EDW.DWS_AUDIT.DWS_WEEKLY_FULL_REFRESH;
 
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- STEP 2: DROP MONITORING SCHEMA
+-- STEP 2: DROP EXTERNAL ACCESS INTEGRATION & NETWORK RULE
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+USE ROLE ACCOUNTADMIN;
+DROP EXTERNAL ACCESS INTEGRATION IF EXISTS dbt_ext_access;
+USE ROLE SYSADMIN;
+DROP SCHEMA IF EXISTS DWS_EDW.DBT_DEPLOY CASCADE;
+
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- STEP 3: DROP MONITORING SCHEMA
 -- ═══════════════════════════════════════════════════════════════════════════════
 
 DROP SCHEMA IF EXISTS DWS_EDW.DWS_MONITORING CASCADE;
 
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- STEP 3: DROP AUDIT SCHEMA
+-- STEP 4: DROP AUDIT SCHEMA
 -- ═══════════════════════════════════════════════════════════════════════════════
 
 DROP SCHEMA IF EXISTS DWS_EDW.DWS_AUDIT CASCADE;
 
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- STEP 4: DROP DBT-CREATED SCHEMAS (prod)
+-- STEP 5: DROP DBT-CREATED SCHEMAS (prod)
 -- ═══════════════════════════════════════════════════════════════════════════════
 
 DROP SCHEMA IF EXISTS DWS_EDW.DWS_CLIENT_REPORTING CASCADE;
@@ -60,7 +70,7 @@ DROP SCHEMA IF EXISTS DWS_EDW.DWS_SNAPSHOTS CASCADE;
 
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- STEP 5: DROP SOURCE SCHEMAS (prod)
+-- STEP 6: DROP SOURCE SCHEMAS (prod)
 -- ═══════════════════════════════════════════════════════════════════════════════
 
 DROP SCHEMA IF EXISTS DWS_EDW.DWS_TRAN CASCADE;
@@ -69,7 +79,7 @@ DROP SCHEMA IF EXISTS DWS_EDW.DWS_REF CASCADE;
 
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- STEP 6: DROP DEV & TEST DATABASES
+-- STEP 7: DROP DEV & TEST DATABASES
 -- ═══════════════════════════════════════════════════════════════════════════════
 
 DROP DATABASE IF EXISTS DWS_EDWDEV;
@@ -77,14 +87,14 @@ DROP DATABASE IF EXISTS DWS_EDWTEST;
 
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- STEP 7: DROP PROD DATABASE
+-- STEP 8: DROP PROD DATABASE
 -- ═══════════════════════════════════════════════════════════════════════════════
 
 DROP DATABASE IF EXISTS DWS_EDW;
 
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- STEP 8: DROP ROLES
+-- STEP 9: DROP ROLES
 -- ═══════════════════════════════════════════════════════════════════════════════
 
 USE ROLE SECURITYADMIN;

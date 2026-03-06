@@ -21,6 +21,30 @@ USE ROLE SYSADMIN;
 
 CREATE DATABASE IF NOT EXISTS DWS_EDW;
 
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- DBT DEPLOY PREREQUISITES (network access for dbt package installs)
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+CREATE SCHEMA IF NOT EXISTS DWS_EDW.DBT_DEPLOY;
+USE SCHEMA DWS_EDW.DBT_DEPLOY;
+
+CREATE OR REPLACE NETWORK RULE dbt_network_rule
+  MODE = EGRESS
+  TYPE = HOST_PORT
+  VALUE_LIST = ('hub.getdbt.com', 'codeload.github.com');
+
+USE ROLE ACCOUNTADMIN;
+
+CREATE OR REPLACE EXTERNAL ACCESS INTEGRATION dbt_ext_access
+  ALLOWED_NETWORK_RULES = (DWS_EDW.DBT_DEPLOY.dbt_network_rule)
+  ENABLED = TRUE;
+
+USE ROLE SYSADMIN;
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- SOURCE SCHEMAS
+-- ═══════════════════════════════════════════════════════════════════════════════
+
 CREATE SCHEMA IF NOT EXISTS DWS_EDW.DWS_TRAN;
 CREATE SCHEMA IF NOT EXISTS DWS_EDW.DWS_MASTER;
 CREATE SCHEMA IF NOT EXISTS DWS_EDW.DWS_REF;
