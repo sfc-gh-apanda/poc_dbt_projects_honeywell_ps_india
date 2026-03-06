@@ -91,7 +91,7 @@ SELECT
     a.client_type,
     a.account_name,
     a.mandate_type,
-    a.account_currency,
+    a.base_currency,
 
     -- Period
     MIN(s.period_start) AS period_start,
@@ -138,5 +138,5 @@ LEFT JOIN account_income ai
 
 GROUP BY
     s.account_id, a.client_id, a.client_name, a.client_type,
-    a.account_name, a.mandate_type, a.account_currency,
+    a.account_name, a.mandate_type, a.base_currency,
     ai.total_dividends_eur, ai.total_fees_eur, ai.total_trades

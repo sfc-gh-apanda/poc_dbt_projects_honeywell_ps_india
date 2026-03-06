@@ -48,7 +48,7 @@ SELECT
     onboarding_date,
     tax_id,
     lei_code,
-    is_active AS source_is_active,
+    is_active,
     load_ts AS source_load_ts,
     update_ts AS source_update_ts,
     '{{ invocation_id }}' AS dbt_snapshot_run_id,
