@@ -161,9 +161,10 @@ COMMENT ON VIEW DWS_TEST_EXECUTIONS IS
 CREATE OR REPLACE VIEW DWS_DAILY_EXECUTION_SUMMARY AS
 SELECT
     DATE(run_started_at) AS execution_date,
-    COUNT(DISTINCT model_name) AS models_run,
-    SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END) AS successful_models,
-    SUM(CASE WHEN status = 'FAIL' THEN 1 ELSE 0 END) AS failed_models,
+    COUNT(*) AS total_executions,
+    COUNT(DISTINCT model_name) AS distinct_models,
+    SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END) AS successful_executions,
+    SUM(CASE WHEN status = 'FAIL' THEN 1 ELSE 0 END) AS failed_executions,
     ROUND(SUM(total_node_runtime) / 60, 2) AS total_minutes,
     ROUND(AVG(total_node_runtime), 2) AS avg_execution_seconds,
     MAX(total_node_runtime) AS max_execution_seconds,

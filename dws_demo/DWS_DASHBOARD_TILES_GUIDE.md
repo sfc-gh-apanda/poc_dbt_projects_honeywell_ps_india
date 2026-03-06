@@ -126,14 +126,15 @@ FROM DWS_EDWDEV.DWS_MONITORING.DWS_ALERT_SUMMARY;
 **Source:** `DWS_MONITORING.DWS_DAILY_EXECUTION_SUMMARY`
 **Chart Type:** Stacked Bar Chart
 **X-Axis:** `execution_date`
-**Y-Axis:** `successful_models` (green), `failed_models` (red)
+**Y-Axis:** `successful_executions` (green), `failed_executions` (red)
 
 ```sql
 SELECT
     execution_date,
-    models_run,
-    successful_models,
-    failed_models,
+    total_executions,
+    distinct_models,
+    successful_executions,
+    failed_executions,
     ROUND(total_minutes, 2) AS total_minutes,
     ROUND(avg_execution_seconds, 2) AS avg_seconds,
     total_rows_affected,
@@ -143,7 +144,7 @@ ORDER BY execution_date DESC;
 ```
 
 **Visualization:**
-- Stacked bar chart: green = successful, red = failed
+- Stacked bar chart: green = successful_executions, red = failed_executions
 - X-axis: `execution_date`
 - Overlay line: `success_rate_pct` on secondary Y-axis
 - Width: 6 columns
@@ -162,7 +163,8 @@ ORDER BY execution_date DESC;
 SELECT
     execution_date,
     success_rate_pct,
-    models_run,
+    total_executions,
+    distinct_models,
     ROUND(avg_execution_seconds, 2) AS avg_seconds
 FROM DWS_EDWDEV.DWS_MONITORING.DWS_DAILY_EXECUTION_SUMMARY
 ORDER BY execution_date ASC;
