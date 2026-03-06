@@ -4,20 +4,20 @@
 --
 -- Purpose: Create audit/monitoring tables for dbt run tracking
 -- Tables:  DBT_RUN_LOG, DBT_MODEL_LOG
--- Schema:  DWS_EDW.DWS_AUDIT
+-- Schema:  DWS_AUDIT (in all 3 databases: DWS_EDW, DWS_EDWDEV, DWS_EDWTEST)
 --
--- Run this ONCE before first dbt build.
+-- Run this ONCE before first dbt build (after DWS_LOAD_SAMPLE_DATA.sql).
 --
 -- ═══════════════════════════════════════════════════════════════════════════════
 
 USE ROLE SYSADMIN;
-USE DATABASE DWS_EDW;
 
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- Create audit schema + tables in all environments
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+-- ---------- PROD (DWS_EDW) ----------
 CREATE SCHEMA IF NOT EXISTS DWS_EDW.DWS_AUDIT;
-
--- ═══════════════════════════════════════════════════════════════════════════════
--- TABLE 1: DBT_RUN_LOG - Tracks each dbt run (invocation)
--- ═══════════════════════════════════════════════════════════════════════════════
 
 CREATE TABLE IF NOT EXISTS DWS_EDW.DWS_AUDIT.DBT_RUN_LOG (
     run_id              VARCHAR(100)    NOT NULL,
@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS DWS_EDW.DWS_AUDIT.DBT_RUN_LOG (
     run_started_at      TIMESTAMP_NTZ,
     run_ended_at        TIMESTAMP_NTZ,
     run_duration_seconds NUMBER,
-    run_status          VARCHAR(20),        -- RUNNING, SUCCESS, FAILED, ERROR
+    run_status          VARCHAR(20),
     run_command         VARCHAR(200),
     warehouse_name      VARCHAR(100),
     user_name           VARCHAR(100),
@@ -40,10 +40,6 @@ CREATE TABLE IF NOT EXISTS DWS_EDW.DWS_AUDIT.DBT_RUN_LOG (
     PRIMARY KEY (run_id)
 );
 
--- ═══════════════════════════════════════════════════════════════════════════════
--- TABLE 2: DBT_MODEL_LOG - Tracks each model execution
--- ═══════════════════════════════════════════════════════════════════════════════
-
 CREATE TABLE IF NOT EXISTS DWS_EDW.DWS_AUDIT.DBT_MODEL_LOG (
     log_id              VARCHAR(200)    NOT NULL,
     run_id              VARCHAR(100)    NOT NULL,
@@ -54,7 +50,95 @@ CREATE TABLE IF NOT EXISTS DWS_EDW.DWS_AUDIT.DBT_MODEL_LOG (
     database_name       VARCHAR(100),
     materialization     VARCHAR(30),
     batch_id            VARCHAR(200),
-    status              VARCHAR(20),        -- SUCCESS, FAIL, ERROR, SKIPPED
+    status              VARCHAR(20),
+    error_message       VARCHAR(2000),
+    started_at          TIMESTAMP_NTZ,
+    ended_at            TIMESTAMP_NTZ,
+    rows_affected       NUMBER,
+    is_incremental      BOOLEAN DEFAULT FALSE,
+    incremental_strategy VARCHAR(30),
+    PRIMARY KEY (log_id)
+);
+
+-- ---------- DEV (DWS_EDWDEV) ----------
+CREATE SCHEMA IF NOT EXISTS DWS_EDWDEV.DWS_AUDIT;
+
+CREATE TABLE IF NOT EXISTS DWS_EDWDEV.DWS_AUDIT.DBT_RUN_LOG (
+    run_id              VARCHAR(100)    NOT NULL,
+    project_name        VARCHAR(100),
+    project_version     VARCHAR(20),
+    environment         VARCHAR(20),
+    run_started_at      TIMESTAMP_NTZ,
+    run_ended_at        TIMESTAMP_NTZ,
+    run_duration_seconds NUMBER,
+    run_status          VARCHAR(20),
+    run_command         VARCHAR(200),
+    warehouse_name      VARCHAR(100),
+    user_name           VARCHAR(100),
+    role_name           VARCHAR(100),
+    selector_used       VARCHAR(500),
+    models_run          NUMBER DEFAULT 0,
+    models_success      NUMBER DEFAULT 0,
+    models_failed       NUMBER DEFAULT 0,
+    models_skipped      NUMBER DEFAULT 0,
+    PRIMARY KEY (run_id)
+);
+
+CREATE TABLE IF NOT EXISTS DWS_EDWDEV.DWS_AUDIT.DBT_MODEL_LOG (
+    log_id              VARCHAR(200)    NOT NULL,
+    run_id              VARCHAR(100)    NOT NULL,
+    project_name        VARCHAR(100),
+    model_name          VARCHAR(200),
+    model_alias         VARCHAR(200),
+    schema_name         VARCHAR(100),
+    database_name       VARCHAR(100),
+    materialization     VARCHAR(30),
+    batch_id            VARCHAR(200),
+    status              VARCHAR(20),
+    error_message       VARCHAR(2000),
+    started_at          TIMESTAMP_NTZ,
+    ended_at            TIMESTAMP_NTZ,
+    rows_affected       NUMBER,
+    is_incremental      BOOLEAN DEFAULT FALSE,
+    incremental_strategy VARCHAR(30),
+    PRIMARY KEY (log_id)
+);
+
+-- ---------- TEST (DWS_EDWTEST) ----------
+CREATE SCHEMA IF NOT EXISTS DWS_EDWTEST.DWS_AUDIT;
+
+CREATE TABLE IF NOT EXISTS DWS_EDWTEST.DWS_AUDIT.DBT_RUN_LOG (
+    run_id              VARCHAR(100)    NOT NULL,
+    project_name        VARCHAR(100),
+    project_version     VARCHAR(20),
+    environment         VARCHAR(20),
+    run_started_at      TIMESTAMP_NTZ,
+    run_ended_at        TIMESTAMP_NTZ,
+    run_duration_seconds NUMBER,
+    run_status          VARCHAR(20),
+    run_command         VARCHAR(200),
+    warehouse_name      VARCHAR(100),
+    user_name           VARCHAR(100),
+    role_name           VARCHAR(100),
+    selector_used       VARCHAR(500),
+    models_run          NUMBER DEFAULT 0,
+    models_success      NUMBER DEFAULT 0,
+    models_failed       NUMBER DEFAULT 0,
+    models_skipped      NUMBER DEFAULT 0,
+    PRIMARY KEY (run_id)
+);
+
+CREATE TABLE IF NOT EXISTS DWS_EDWTEST.DWS_AUDIT.DBT_MODEL_LOG (
+    log_id              VARCHAR(200)    NOT NULL,
+    run_id              VARCHAR(100)    NOT NULL,
+    project_name        VARCHAR(100),
+    model_name          VARCHAR(200),
+    model_alias         VARCHAR(200),
+    schema_name         VARCHAR(100),
+    database_name       VARCHAR(100),
+    materialization     VARCHAR(30),
+    batch_id            VARCHAR(200),
+    status              VARCHAR(20),
     error_message       VARCHAR(2000),
     started_at          TIMESTAMP_NTZ,
     ended_at            TIMESTAMP_NTZ,
@@ -65,7 +149,7 @@ CREATE TABLE IF NOT EXISTS DWS_EDW.DWS_AUDIT.DBT_MODEL_LOG (
 );
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- MONITORING VIEWS
+-- MONITORING VIEWS (prod only -- cross-env queries use ACCOUNT_USAGE)
 -- ═══════════════════════════════════════════════════════════════════════════════
 
 CREATE OR REPLACE VIEW DWS_EDW.DWS_AUDIT.V_RUN_HISTORY AS
@@ -118,8 +202,11 @@ LIMIT 50;
 -- VERIFICATION
 -- ═══════════════════════════════════════════════════════════════════════════════
 
-SELECT 'DWS_AUDIT tables created successfully' AS status;
-SELECT TABLE_NAME, ROW_COUNT
-FROM INFORMATION_SCHEMA.TABLES
-WHERE TABLE_SCHEMA = 'DWS_AUDIT'
-ORDER BY TABLE_NAME;
+SELECT 'PROD audit tables' AS env, TABLE_NAME
+FROM DWS_EDW.INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'DWS_AUDIT' ORDER BY TABLE_NAME;
+
+SELECT 'DEV audit tables' AS env, TABLE_NAME
+FROM DWS_EDWDEV.INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'DWS_AUDIT' ORDER BY TABLE_NAME;
+
+SELECT 'TEST audit tables' AS env, TABLE_NAME
+FROM DWS_EDWTEST.INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'DWS_AUDIT' ORDER BY TABLE_NAME;
