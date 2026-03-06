@@ -2,7 +2,7 @@
     config(
         materialized='incremental',
         incremental_strategy='append',
-        on_schema_change='sync_all_columns',
+        on_schema_change='append_new_columns',
         tags=['events', 'append_only', 'daily'],
         query_tag='dbt_fact_client_events'
     )
