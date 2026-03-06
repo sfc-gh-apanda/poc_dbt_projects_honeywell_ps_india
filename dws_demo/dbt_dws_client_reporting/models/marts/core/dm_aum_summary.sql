@@ -3,7 +3,7 @@
         materialized='incremental',
         unique_key='aum_key',
         incremental_strategy='merge',
-        on_schema_change='fail',
+        on_schema_change='sync_all_columns',
         merge_update_columns=[
             'total_market_value_local', 'total_market_value_eur',
             'total_cost_value_eur', 'total_unrealized_pnl_eur',
