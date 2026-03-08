@@ -1,0 +1,9 @@
+version: 2
+
+sources:
+  - name: dws_tran
+    database: DWS_EDW
+    schema: DWS_TRAN
+    tables:
+      - name: FACT_PORTFOLIO_HOLDINGS
+        description: "Daily portfolio positions (account x fund x date)"
